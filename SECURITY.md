@@ -4,13 +4,13 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 21      | :white_check_mark: |
-| 20.1    | :white_check_mark: |
-| < 20.1  | :x:                |
+| 0.17    | :white_check_mark: |
+| 0.16    | :white_check_mark: |
+| < 0.16  | :x:                |
 
 ## Reporting a Vulnerability
 
-To report security issues send an email to security@dash.org (not for support).
+To report security issues send an email to security@ogva.net (not for support).
 
 The following keys may be used to communicate sensitive information to developers:
 

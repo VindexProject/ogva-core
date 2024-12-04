@@ -6,7 +6,7 @@ Utility to generate the seeds.txt list that is compiled into the client
 The seeds compiled into the release are created from the current protx list, like this:
 
 ```bash
-dash-cli protx list valid 1 2018966 > protx_list.json
+ogva-cli protx list valid 1 2018966 > protx_list.json
 
 # Make sure the onion seeds still work!
 while IFS= read -r line
@@ -26,12 +26,7 @@ that the list is as expected.
 
 ## Dependencies
 
-Ubuntu, Debian:
+Ubuntu:
 
-    sudo apt-get install python3-dnspython
-
-and/or for other operating systems:
-
-    pip3 install dnspython3
-
-See https://dnspython.readthedocs.io/en/latest/installation.html for more information.
+    sudo apt-get install python3-pip
+    pip3 install dnspython

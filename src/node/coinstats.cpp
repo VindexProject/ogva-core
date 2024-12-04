@@ -18,7 +18,6 @@
 
 #include <map>
 
-// Database-independent metric indicating the UTXO set size
 uint64_t GetBogoSize(const CScript& script_pub_key)
 {
     return 32 /* txid */ +
@@ -113,6 +112,7 @@ static bool GetUTXOStats(CCoinsView* view, BlockManager& blockman, CCoinsStats& 
 
     if (!pindex) {
         LOCK(cs_main);
+        assert(std::addressof(g_chainman.m_blockman) == std::addressof(blockman));
         pindex = blockman.LookupBlockIndex(view->GetBestBlock());
     }
     stats.nHeight = Assert(pindex)->nHeight;

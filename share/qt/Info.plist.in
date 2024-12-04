@@ -11,7 +11,7 @@
   </array>
 
   <key>CFBundleIconFile</key>
-  <string>dash.icns</string>
+  <string>ogva.icns</string>
 
   <key>CFBundlePackageType</key>
   <string>APPL</string>
@@ -26,15 +26,15 @@
   <string>????</string>
 
   <key>CFBundleExecutable</key>
-  <string>Dash-Qt</string>
+  <string>Ogva-Qt</string>
   <key>CFBundleName</key>
-  <string>Dash-Qt</string>
+  <string>Ogva-Qt</string>
 
   <key>LSHasLocalizedDisplayName</key>
   <true/>
 
   <key>CFBundleIdentifier</key>
-  <string>org.dash.Dash-Qt</string>
+  <string>org.ogva.Ogva-Qt</string>
 
   <key>CFBundleURLTypes</key>
   <array>
@@ -42,10 +42,10 @@
       <key>CFBundleTypeRole</key>
       <string>Editor</string>
       <key>CFBundleURLName</key>
-      <string>org.dash.DashPayment</string>
+      <string>org.ogva.Dashpayment</string>
       <key>CFBundleURLSchemes</key>
       <array>
-        <string>dash</string>
+        <string>ogva</string>
       </array>
     </dict>
   </array>

@@ -15,8 +15,7 @@
 #include <util/ranges.h>
 #include <coinjoin/context.h>
 
-void CMasternodeUtils::DoMaintenance(CConnman& connman, CDeterministicMNManager& dmnman,
-                                     const CMasternodeSync& mn_sync, const CJContext& cj_ctx)
+void CMasternodeUtils::DoMaintenance(CConnman& connman, const CMasternodeSync& mn_sync, const CJContext& cj_ctx)
 {
     if (!mn_sync.IsBlockchainSynced()) return;
     if (ShutdownRequested()) return;
@@ -49,14 +48,13 @@ void CMasternodeUtils::DoMaintenance(CConnman& connman, CDeterministicMNManager&
     connman.ForEachNode(CConnman::AllNodes, [&](CNode* pnode) {
         if (pnode->m_masternode_probe_connection) {
             // we're not disconnecting masternode probes for at least PROBE_WAIT_INTERVAL seconds
-            if (GetTime<std::chrono::seconds>() - pnode->m_connected < PROBE_WAIT_INTERVAL) return;
+            if (GetSystemTimeInSeconds() - pnode->nTimeConnected < PROBE_WAIT_INTERVAL) return;
         } else {
             // we're only disconnecting m_masternode_connection connections
             if (!pnode->m_masternode_connection) return;
             if (!pnode->GetVerifiedProRegTxHash().IsNull()) {
-                const auto tip_mn_list = dmnman.GetListAtChainTip();
                 // keep _verified_ LLMQ connections
-                if (connman.IsMasternodeQuorumNode(pnode, tip_mn_list)) {
+                if (connman.IsMasternodeQuorumNode(pnode)) {
                     return;
                 }
                 // keep _verified_ LLMQ relay connections
@@ -67,7 +65,7 @@ void CMasternodeUtils::DoMaintenance(CConnman& connman, CDeterministicMNManager&
                 if (pnode->IsInboundConn()) {
                     return;
                 }
-            } else if (GetTime<std::chrono::seconds>() - pnode->m_connected < 5s) {
+            } else if (GetSystemTimeInSeconds() - pnode->nTimeConnected < 5) {
                 // non-verified, give it some time to verify itself
                 return;
             } else if (pnode->qwatch) {

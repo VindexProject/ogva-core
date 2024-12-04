@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2020 The Bitcoin Core developers
+// Copyright (c) 2009-2015 The Bitcoin Core developers
 // Copyright (c) 2014-2023 The Dash Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -27,6 +27,8 @@
 #include <crypto/sph_shavite.h>
 #include <crypto/sph_simd.h>
 #include <crypto/sph_echo.h>
+
+#include <crypto/neoscrypt.h>
 
 #include <vector>
 
@@ -201,30 +203,6 @@ public:
     }
 };
 
-/** Writes data to an underlying source stream, while hashing the written data. */
-template <typename Source>
-class HashedSourceWriter : public CHashWriter
-{
-private:
-    Source& m_source;
-
-public:
-    explicit HashedSourceWriter(Source& source LIFETIMEBOUND) : CHashWriter{source.GetType(), source.GetVersion()}, m_source{source} {}
-
-    void write(Span<const std::byte> src)
-    {
-        m_source.write(src);
-        CHashWriter::write(src);
-    }
-
-    template <typename T>
-    HashedSourceWriter& operator<<(const T& obj)
-    {
-        ::Serialize(*this, obj);
-        return *this;
-    }
-};
-
 /** Compute the 256-bit hash of an object's serialization. */
 template<typename T>
 uint256 SerializeHash(const T& obj, int nType=SER_GETHASH, int nVersion=PROTOCOL_VERSION)
@@ -241,7 +219,7 @@ unsigned int MurmurHash3(unsigned int nHashSeed, Span<const unsigned char> vData
 
 void BIP32Hash(const ChainCode &chainCode, unsigned int nChild, unsigned char header, const unsigned char data[32], unsigned char output[64]);
 
-/* ----------- Dash Hash ------------------------------------------------ */
+/* ----------- Ogva Hash ------------------------------------------------ */
 template<typename T1>
 inline uint256 HashX11(const T1 pbegin, const T1 pend)
 
@@ -307,5 +285,16 @@ inline uint256 HashX11(const T1 pbegin, const T1 pend)
 
     return hash[10].trim256();
 }
+
+/* ----------- OGVA Hash ------------------------------------------------ */
+template<typename T1>
+inline uint256 HashNeoscrypt(const T1 pbegin, const T1 pend)
+{
+    uint256 hash[1];
+    unsigned int profile = 0x0;
+    neoscrypt((unsigned char *) &pbegin[0], (unsigned char *) &hash[0], (unsigned int) 0x0);
+    return hash[0];
+}
+
 
 #endif // BITCOIN_HASH_H

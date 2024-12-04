@@ -1,11 +1,11 @@
 Sample configuration files for:
 ```
-systemd: dashd.service
-Upstart: dashd.conf
-OpenRC:  dashd.openrc
-         dashd.openrcconf
-CentOS:  dashd.init
-macOS:   org.dash.dashd.plist
+systemd: ogvad.service
+Upstart: ogvad.conf
+OpenRC:  ogvad.openrc
+         ogvad.openrcconf
+CentOS:  ogvad.init
+macOS:   org.ogva.ogvad.plist
 ```
 have been made available to assist packagers in creating node packages here.
 

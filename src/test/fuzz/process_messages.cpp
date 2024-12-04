@@ -45,7 +45,11 @@ FUZZ_TARGET_INIT(process_messages, initialize_process_messages)
         peers.push_back(ConsumeNodeAsUniquePtr(fuzzed_data_provider, i).release());
         CNode& p2p_node = *peers.back();
 
-        FillNode(fuzzed_data_provider, connman, p2p_node);
+        const bool successfully_connected{fuzzed_data_provider.ConsumeBool()};
+        p2p_node.fSuccessfullyConnected = successfully_connected;
+        p2p_node.fPauseSend = false;
+        g_setup->m_node.peerman->InitializeNode(&p2p_node);
+        FillNode(fuzzed_data_provider, p2p_node, /* init_version */ successfully_connected);
 
         connman.AddTestNode(p2p_node);
     }
@@ -57,7 +61,7 @@ FUZZ_TARGET_INIT(process_messages, initialize_process_messages)
         SetMockTime(mock_time);
 
         CSerializedNetMsg net_msg;
-        net_msg.m_type = random_message_type;
+        net_msg.command = random_message_type;
         net_msg.data = ConsumeRandomLengthByteVector(fuzzed_data_provider);
 
         CNode& random_node = *PickValue(fuzzed_data_provider, peers);

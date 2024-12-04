@@ -42,8 +42,8 @@ class AddrTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         # Use some of the remaining p2p ports for the onion binds.
-        self.onion_port1 = p2p_port(self.num_nodes)
-        self.onion_port2 = p2p_port(self.num_nodes + 1)
+        self.onion_port1 = p2p_port(1)
+        self.onion_port2 = p2p_port(2)
         self.extra_args = [
             [f"-bind=127.0.0.1:{self.onion_port1}=onion", f"-bind=127.0.0.1:{self.onion_port2}=onion"],
         ]
@@ -54,7 +54,7 @@ class AddrTest(BitcoinTestFramework):
             first_octet = i >> 8
             second_octet = i % 256
             a = "{}.{}.1.1".format(first_octet, second_octet)
-            self.nodes[0].addpeeraddress(a, 9999)
+            self.nodes[0].addpeeraddress(a, 40112)
 
         # Need to make sure we hit MAX_ADDR_TO_SEND records in the addr response later because
         # only a fraction of all known addresses can be cached and returned.

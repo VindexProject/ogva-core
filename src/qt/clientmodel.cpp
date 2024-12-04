@@ -76,14 +76,14 @@ ClientModel::~ClientModel()
 
 int ClientModel::getNumConnections(unsigned int flags) const
 {
-    ConnectionDirection connections = ConnectionDirection::None;
+    CConnman::NumConnections connections = CConnman::CONNECTIONS_NONE;
 
     if(flags == CONNECTIONS_IN)
-        connections = ConnectionDirection::In;
+        connections = CConnman::CONNECTIONS_IN;
     else if (flags == CONNECTIONS_OUT)
-        connections = ConnectionDirection::Out;
+        connections = CConnman::CONNECTIONS_OUT;
     else if (flags == CONNECTIONS_ALL)
-        connections = ConnectionDirection::Both;
+        connections = CConnman::CONNECTIONS_ALL;
 
     return m_node.getNodeCount(connections);
 }
@@ -246,12 +246,12 @@ QString ClientModel::formatClientStartupTime() const
 
 QString ClientModel::dataDir() const
 {
-    return GUIUtil::PathToQString(GetDataDir());
+    return GUIUtil::boostPathToQString(GetDataDir());
 }
 
 QString ClientModel::blocksDir() const
 {
-    return GUIUtil::PathToQString(gArgs.GetBlocksDirPath());
+    return GUIUtil::boostPathToQString(GetBlocksDir());
 }
 
 void ClientModel::updateBanlist()
@@ -381,7 +381,7 @@ void ClientModel::unsubscribeFromCoreSignals()
 
 bool ClientModel::getProxyInfo(std::string& ip_port) const
 {
-    Proxy ipv4, ipv6;
+    proxyType ipv4, ipv6;
     if (m_node.getProxy((Network) 1, ipv4) && m_node.getProxy((Network) 2, ipv6)) {
       ip_port = ipv4.proxy.ToStringIPPort();
       return true;

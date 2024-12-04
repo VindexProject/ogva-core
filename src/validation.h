@@ -13,15 +13,20 @@
 
 #include <amount.h>
 #include <attributes.h>
-#include <chain.h>
+#include <coins.h>
+#include <consensus/validation.h>
+#include <crypto/common.h> // for ReadLE64
 #include <fs.h>
+#include <node/utxo_snapshot.h>
 #include <policy/feerate.h>
 #include <policy/packages.h>
+#include <protocol.h> // For CMessageHeader::MessageStartChars
 #include <script/script_error.h>
 #include <sync.h>
 #include <txdb.h>
 #include <txmempool.h> // For CTxMemPool::cs
 #include <serialize.h>
+#include <spentindex.h>
 #include <util/check.h>
 #include <util/hasher.h>
 
@@ -39,23 +44,28 @@
 namespace llmq {
 class CChainLocksHandler;
 class CInstantSendManager;
+class CQuorumBlockProcessor;
 } // namespace llmq
 
 class CEvoDB;
 
 class CChainState;
+class BlockValidationState;
 class CBlockIndex;
 class CBlockTreeDB;
+class CBlockUndo;
 class CChainParams;
 struct CCheckpointData;
+class CInv;
+class CConnman;
 class CMNHFManager;
+class CScriptCheck;
 class CTxMemPool;
 class TxValidationState;
-class CChainstateHelper;
 class ChainstateManager;
 struct PrecomputedTransactionData;
-class SnapshotMetadata;
 struct ChainTxData;
+
 struct DisconnectedBlockTransactions;
 struct LockPoints;
 struct AssumeutxoData;
@@ -97,6 +107,7 @@ static const bool DEFAULT_ADDRESSINDEX = false;
 static const bool DEFAULT_TIMESTAMPINDEX = false;
 static const bool DEFAULT_SPENTINDEX = false;
 static const char* const DEFAULT_BLOCKFILTERINDEX = "0";
+static const unsigned int DEFAULT_BANSCORE_THRESHOLD = 100;
 /** Default for -persistmempool */
 static const bool DEFAULT_PERSIST_MEMPOOL = true;
 /** Default for -syncmempool */
@@ -104,7 +115,7 @@ static const bool DEFAULT_SYNC_MEMPOOL = true;
 
 /** Default for -stopatheight */
 static const int DEFAULT_STOPATHEIGHT = 0;
-/** Block files containing a block-height within MIN_BLOCKS_TO_KEEP of ActiveChain().Tip() will not be pruned. */
+/** Block files containing a block-height within MIN_BLOCKS_TO_KEEP of ::ChainActive().Tip() will not be pruned. */
 static const unsigned int MIN_BLOCKS_TO_KEEP = 288;
 static const signed int DEFAULT_CHECKBLOCKS = 6;
 static const unsigned int DEFAULT_CHECKLEVEL = 3;
@@ -293,9 +304,9 @@ PackageMempoolAcceptResult ProcessNewPackage(CChainState& active_chainstate, CTx
                                              const Package& txns, bool test_accept)
                                              EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-bool GetUTXOCoin(CChainState& active_chainstate, const COutPoint& outpoint, Coin& coin);
-int GetUTXOHeight(CChainState& active_chainstate, const COutPoint& outpoint);
-int GetUTXOConfirmations(CChainState& active_chainstate, const COutPoint& outpoint);
+bool GetUTXOCoin(const COutPoint& outpoint, Coin& coin);
+int GetUTXOHeight(const COutPoint& outpoint);
+int GetUTXOConfirmations(const COutPoint& outpoint);
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight);
@@ -378,13 +389,20 @@ public:
     ScriptError GetScriptError() const { return error; }
 };
 
+bool GetTimestampIndex(const unsigned int &high, const unsigned int &low, std::vector<uint256> &hashes);
+bool GetSpentIndex(CTxMemPool& mempool, CSpentIndexKey &key, CSpentIndexValue &value);
+bool GetAddressIndex(uint160 addressHash, AddressType type,
+                     std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,
+                     int start = 0, int end = 0);
+bool GetAddressUnspent(uint160 addressHash, AddressType type,
+                       std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs);
 /** Initializes the script-execution cache */
 void InitScriptExecutionCache();
 
 /** Functions for validating blocks and updating the block tree */
 
 /** Context-independent validity checks */
-bool CheckBlock(const CBlock& block, BlockValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true, bool fCheckMerkleRoot = true);
+bool CheckBlock(const CBlock& block, BlockValidationState& state, const Consensus::Params& consensusParams, int nHeight, bool fCheckPOW = true, bool fCheckMerkleRoot = true);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block) */
 bool TestBlockValidity(BlockValidationState& state,
@@ -603,7 +621,7 @@ enum class CoinsCacheSizeState
  *
  * Anything that is contingent on the current tip of the chain is stored here,
  * whereas block information and metadata independent of the current tip is
- * kept in `BlockManager`.
+ * kept in `BlockMetadataManager`.
  */
 class CChainState
 {
@@ -612,8 +630,9 @@ protected:
      * Every received block is assigned a unique and increasing identifier, so we
      * know which one to give priority in case of a fork.
      */
+    RecursiveMutex cs_nBlockSequenceId;
     /** Blocks loaded from disk are assigned id 0, so start the counter at 1. */
-    int32_t nBlockSequenceId GUARDED_BY(::cs_main) = 1;
+    int32_t nBlockSequenceId = 1;
     /** Decreasing counter (used by subsequent preciousblock calls). */
     int32_t nBlockReverseSequenceId = -1;
     /** chainwork for the last block that preciousblock has been applied to. */
@@ -642,10 +661,11 @@ protected:
     //! Manages the UTXO set, which is a reflection of the contents of `m_chain`.
     std::unique_ptr<CoinsViews> m_coins_views;
 
-    //! Dash
-    const std::unique_ptr<CChainstateHelper>& m_chain_helper;
+    //! Ogva
     const std::unique_ptr<llmq::CChainLocksHandler>& m_clhandler;
     const std::unique_ptr<llmq::CInstantSendManager>& m_isman;
+    const std::unique_ptr<llmq::CQuorumBlockProcessor>& m_quorum_block_processor;
+    CMNHFManager& m_mnhfManager;
     CEvoDB& m_evoDb;
 
 public:
@@ -655,10 +675,11 @@ public:
 
     explicit CChainState(CTxMemPool* mempool,
                          BlockManager& blockman,
+                         CMNHFManager& mnhfManager,
                          CEvoDB& evoDb,
-                         const std::unique_ptr<CChainstateHelper>& chain_helper,
                          const std::unique_ptr<llmq::CChainLocksHandler>& clhandler,
                          const std::unique_ptr<llmq::CInstantSendManager>& isman,
+                         const std::unique_ptr<llmq::CQuorumBlockProcessor>& quorum_block_processor,
                          std::optional<uint256> from_snapshot_blockhash = std::nullopt);
 
     /**
@@ -700,12 +721,6 @@ public:
      * missing the data for the block.
      */
     std::set<CBlockIndex*, CBlockIndexWorkComparator> setBlockIndexCandidates;
-
-    CChainstateHelper& ChainHelper()
-    {
-        assert(m_chain_helper);
-        return *m_chain_helper;
-    }
 
     //! @returns A reference to the in-memory cache of the UTXO set.
     CCoinsViewCache& CoinsTip() EXCLUSIVE_LOCKS_REQUIRED(cs_main)
@@ -816,7 +831,7 @@ public:
 
     void PruneBlockIndexCandidates();
 
-    void UnloadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
+    void UnloadBlockIndex();
 
     /** Check whether we are doing an initial block download (synchronizing from disk or network) */
     bool IsInitialBlockDownload() const;
@@ -842,6 +857,9 @@ public:
     CoinsCacheSizeState GetCoinsCacheSizeState(
         size_t max_coins_cache_size_bytes,
         size_t max_mempool_size_bytes) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
+
+    /** Return list of MN EHF signals for current Tip() */
+    std::unordered_map<uint8_t, int> GetMNHFSignalsStage(const CBlockIndex* pindex);
 
     std::string ToString() EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
 private:
@@ -981,6 +999,10 @@ private:
         CAutoFile& coins_file,
         const SnapshotMetadata& metadata);
 
+    // For access to m_active_chainstate.
+    friend CChainState& ChainstateActive();
+    friend CChain& ChainActive();
+
 public:
     std::thread m_load_block;
     //! A single BlockManager instance is shared across each constructed
@@ -1003,10 +1025,11 @@ public:
     //! @param[in] snapshot_blockhash   If given, signify that this chainstate
     //!                                 is based on a snapshot.
     CChainState& InitializeChainstate(CTxMemPool* mempool,
+                                      CMNHFManager& mnhfManager,
                                       CEvoDB& evoDb,
-                                      const std::unique_ptr<CChainstateHelper>& chain_helper,
                                       const std::unique_ptr<llmq::CChainLocksHandler>& clhandler,
                                       const std::unique_ptr<llmq::CInstantSendManager>& isman,
+                                      const std::unique_ptr<llmq::CQuorumBlockProcessor>& quorum_block_processor,
                                       const std::optional<uint256>& snapshot_blockhash = std::nullopt)
         EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
 
@@ -1115,23 +1138,26 @@ public:
     //! Check to see if caches are out of balance and if so, call
     //! ResizeCoinsCaches() as needed.
     void MaybeRebalanceCaches() EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
-
-    ~ChainstateManager() {
-        LOCK(::cs_main);
-        UnloadBlockIndex(/* mempool */ nullptr, *this);
-        Reset();
-    }
 };
+
+/** DEPRECATED! Please use node.chainman instead. May only be used in validation.cpp internally */
+extern ChainstateManager g_chainman GUARDED_BY(::cs_main);
+
+/** Please prefer the identical ChainstateManager::ActiveChainstate */
+CChainState& ChainstateActive();
+
+/** Please prefer the identical ChainstateManager::ActiveChain */
+CChain& ChainActive();
 
 /** Global variable that points to the active block tree (protected by cs_main) */
 extern std::unique_ptr<CBlockTreeDB> pblocktree;
 
 
 /**
- * Return true if hash can be found in active_chain at nBlockHeight height.
- * Fills hashRet with found hash, if no nBlockHeight is specified - active_chain.Height() is used.
+ * Return true if hash can be found in ::ChainActive() at nBlockHeight height.
+ * Fills hashRet with found hash, if no nBlockHeight is specified - ::ChainActive().Height() is used.
  */
-bool GetBlockHash(const CChain& active_chain, uint256& hashRet, int nBlockHeight = -1);
+bool GetBlockHash(uint256& hashRet, int nBlockHeight = -1);
 
 /** Get block file info entry for one block file */
 CBlockFileInfo* GetBlockFileInfo(size_t n);

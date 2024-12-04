@@ -12,9 +12,9 @@ Checks DIP4 merkle roots in coinbases
 
 from io import BytesIO
 
-from test_framework.messages import CBlock, CBlockHeader, CCbTx, CMerkleBlock, from_hex, hash256, msg_getmnlistd, QuorumId, ser_uint256
+from test_framework.messages import CBlock, CBlockHeader, CCbTx, CMerkleBlock, FromHex, hash256, msg_getmnlistd, QuorumId, ser_uint256
 from test_framework.p2p import P2PInterface
-from test_framework.test_framework import DashTestFramework
+from test_framework.test_framework import OgvaTestFramework
 from test_framework.util import assert_equal
 
 
@@ -40,9 +40,9 @@ class TestP2PConn(P2PInterface):
         return self.last_mnlistdiff
 
 
-class LLMQCoinbaseCommitmentsTest(DashTestFramework):
+class LLMQCoinbaseCommitmentsTest(OgvaTestFramework):
     def set_test_params(self):
-        self.set_dash_test_params(4, 3, fast_dip3_enforcement=True)
+        self.set_ogva_test_params(4, 3, fast_dip3_enforcement=True)
 
     def run_test(self):
         # No IS or Chainlocks in this test
@@ -62,7 +62,7 @@ class LLMQCoinbaseCommitmentsTest(DashTestFramework):
         mnList = self.test_getmnlistdiff(null_hash, self.nodes[0].getbestblockhash(), {}, [], expectedUpdated)
         expectedUpdated2 = expectedUpdated + []
 
-        # Register one more MN, but don't start it (that would fail as DashTestFramework doesn't support this atm)
+        # Register one more MN, but don't start it (that would fail as OgvaTestFramework doesn't support this atm)
         baseBlockHash = self.nodes[0].getbestblockhash()
         self.prepare_masternode(self.mn_count)
         new_mn = self.mninfo[self.mn_count]
@@ -216,7 +216,7 @@ class LLMQCoinbaseCommitmentsTest(DashTestFramework):
 
     def test_getmnlistdiff_base(self, baseBlockHash, blockHash):
         hexstr = self.nodes[0].getblockheader(blockHash, False)
-        header = from_hex(CBlockHeader(), hexstr)
+        header = FromHex(CBlockHeader(), hexstr)
 
         d = self.test_node.getmnlistdiff(int(baseBlockHash, 16), int(blockHash, 16))
         assert_equal(d.baseBlockHash, int(baseBlockHash, 16))

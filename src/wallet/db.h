@@ -152,8 +152,6 @@ public:
 
     /** Make a DatabaseBatch connected to this database */
     virtual std::unique_ptr<DatabaseBatch> MakeBatch(bool flush_on_close = true) = 0;
-
-    virtual bool SupportsAutoBackup() { return false; }
 };
 
 /** RAII class that provides access to a DummyDatabase. Never fails. */

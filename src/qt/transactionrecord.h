@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2020 The Bitcoin Core developers
+// Copyright (c) 2011-2014 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -96,8 +96,7 @@ public:
         CoinJoinCollateralPayment,
         CoinJoinMakeCollaterals,
         CoinJoinCreateDenominations,
-        CoinJoinSend,
-        PlatformTransfer,
+        CoinJoinSend
     };
 
     /** Number of confirmation recommended for accepting a transaction */

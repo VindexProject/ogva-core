@@ -4,11 +4,8 @@
 
 #include <batchedlogger.h>
 
-CBatchedLogger::CBatchedLogger(BCLog::LogFlags _category, const std::string& logging_function, const std::string& source_file, int source_line) :
-    accept(LogAcceptCategory(_category)),
-    m_logging_function(logging_function),
-    m_source_file(source_file),
-    m_source_line(source_line)
+CBatchedLogger::CBatchedLogger(BCLog::LogFlags _category, const std::string& _header) :
+    accept(LogAcceptCategory(_category)), header(_header)
 {
 }
 
@@ -22,6 +19,6 @@ void CBatchedLogger::Flush()
     if (!accept || msg.empty()) {
         return;
     }
-    LogInstance().LogPrintStr(msg, m_logging_function, m_source_file, m_source_line);
+    LogInstance().LogPrintStr(strprintf("%s:\n%s", header, msg));
     msg.clear();
 }

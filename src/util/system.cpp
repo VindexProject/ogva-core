@@ -15,8 +15,6 @@
 #include <chainparamsbase.h>
 #include <ctpl_stl.h>
 #include <stacktraces.h>
-#include <sync.h>
-#include <util/check.h>
 #include <util/getuniquepath.h>
 #include <util/strencodings.h>
 #include <util/string.h>
@@ -80,8 +78,9 @@
 // Application startup time (used for uptime calculation)
 const int64_t nStartupTime = GetTime();
 
-//Dash only features
+//Ogva only features
 bool fMasternodeMode = false;
+bool fDisableGovernance = false;
 const std::string gCoinJoinName = "CoinJoin";
 
 /**
@@ -93,7 +92,7 @@ const std::string gCoinJoinName = "CoinJoin";
 */
 int nWalletBackups = 10;
 
-const char * const BITCOIN_CONF_FILENAME = "dash.conf";
+const char * const BITCOIN_CONF_FILENAME = "ogva.conf";
 const char * const BITCOIN_SETTINGS_FILENAME = "settings.json";
 
 ArgsManager gArgs;
@@ -254,19 +253,6 @@ static bool CheckValid(const std::string& key, const util::SettingsValue& val, u
     return true;
 }
 
-namespace {
-fs::path StripRedundantLastElementsOfPath(const fs::path& path)
-{
-    auto result = path;
-    while (result.filename().string() == ".") {
-        result = result.parent_path();
-    }
-
-    assert(fs::equivalent(result, path));
-    return result;
-}
-} // namespace
-
 // Define default constructor and destructor that are not inline, so code instantiating this class doesn't need to
 // #include class definitions for all members.
 // For example, m_settings has an internal dependency on univalue.
@@ -327,7 +313,7 @@ bool ArgsManager::ParseParameters(int argc, const char* const argv[], std::strin
 
     for (int i = 1; i < argc; i++) {
         std::string key(argv[i]);
-        if (key == "-") break; //dash-tx using stdin
+        if (key == "-") break; //ogva-tx using stdin
 
 #ifdef MAC_OSX
         // At the first time when a user gets the "App downloaded from the
@@ -349,22 +335,8 @@ bool ArgsManager::ParseParameters(int argc, const char* const argv[], std::strin
             key[0] = '-';
 #endif
 
-        if (key[0] != '-') {
-            if (!m_accept_any_command && m_command.empty()) {
-                // The first non-dash arg is a registered command
-                std::optional<unsigned int> flags = GetArgFlags(key);
-                if (!flags || !(*flags & ArgsManager::COMMAND)) {
-                    error = strprintf("Invalid command '%s'", argv[i]);
-                    return false;
-                }
-            }
-            m_command.push_back(key);
-            while (++i < argc) {
-                // The remaining args are command args
-                m_command.push_back(argv[i]);
-            }
+        if (key[0] != '-')
             break;
-        }
 
         // Transform --foo to -foo
         if (key.length() > 1 && key[1] == '-')
@@ -413,100 +385,6 @@ std::optional<unsigned int> ArgsManager::GetArgFlags(const std::string& name) co
     return std::nullopt;
 }
 
-const fs::path& ArgsManager::GetBlocksDirPath()
-{
-    LOCK(cs_args);
-    fs::path& path = m_cached_blocks_path;
-
-    // Cache the path to avoid calling fs::create_directories on every call of
-    // this function
-    if (!path.empty()) return path;
-
-    if (IsArgSet("-blocksdir")) {
-        path = fs::system_complete(GetArg("-blocksdir", ""));
-        if (!fs::is_directory(path)) {
-            path = "";
-            return path;
-        }
-    } else {
-        path = GetDataDirPath(false);
-    }
-
-    path /= BaseParams().DataDir();
-    path /= "blocks";
-    fs::create_directories(path);
-    path = StripRedundantLastElementsOfPath(path);
-    return path;
-}
-
-const fs::path& ArgsManager::GetDataDirPath(bool net_specific) const
-{
-    LOCK(cs_args);
-    fs::path& path = net_specific ? m_cached_network_datadir_path : m_cached_datadir_path;
-
-    // Cache the path to avoid calling fs::create_directories on every call of
-    // this function
-    if (!path.empty()) return path;
-
-    std::string datadir = GetArg("-datadir", "");
-    if (!datadir.empty()) {
-        path = fs::system_complete(datadir);
-        if (!fs::is_directory(path)) {
-            path = "";
-            return path;
-        }
-    } else {
-        path = GetDefaultDataDir();
-    }
-    if (net_specific)
-        path /= BaseParams().DataDir();
-
-    if (fs::create_directories(path)) {
-        // This is the first run, create wallets subdirectory too
-        fs::create_directories(path / "wallets");
-    }
-
-    path = StripRedundantLastElementsOfPath(path);
-    return path;
-}
-
-fs::path ArgsManager::GetBackupsDirPath()
-{
-    if (!IsArgSet("-walletbackupsdir"))
-        return GetDataDirPath() / "backups";
-
-    return fs::absolute(GetArg("-walletbackupsdir", ""));
-}
-
-void ArgsManager::ClearPathCache()
-{
-    LOCK(cs_args);
-
-    m_cached_datadir_path = fs::path();
-    m_cached_network_datadir_path = fs::path();
-    m_cached_blocks_path = fs::path();
-}
-
-std::optional<const ArgsManager::Command> ArgsManager::GetCommand() const
-{
-    Command ret;
-    LOCK(cs_args);
-    auto it = m_command.begin();
-    if (it == m_command.end()) {
-        // No command was passed
-        return std::nullopt;
-    }
-    if (!m_accept_any_command) {
-        // The registered command
-        ret.command = *(it++);
-    }
-    while (it != m_command.end()) {
-        // The unregistered command and args (if any)
-        ret.args.push_back(*(it++));
-    }
-    return ret;
-}
-
 std::vector<std::string> ArgsManager::GetArgs(const std::string& strArg) const
 {
     std::vector<std::string> result;
@@ -546,7 +424,7 @@ bool ArgsManager::GetSettingsPath(fs::path* filepath, bool temp) const
     }
     if (filepath) {
         std::string settings = GetArg("-settings", BITCOIN_SETTINGS_FILENAME);
-        *filepath = fsbridge::AbsPathJoin(GetDataDirPath(/* net_specific= */ true), temp ? settings + ".tmp" : settings);
+        *filepath = fsbridge::AbsPathJoin(GetDataDir(/* net_specific= */ true), temp ? settings + ".tmp" : settings);
     }
     return true;
 }
@@ -652,22 +530,8 @@ void ArgsManager::ForceSetArg(const std::string& strArg, const std::string& strV
     m_settings.forced_settings[SettingName(strArg)] = strValue;
 }
 
-void ArgsManager::AddCommand(const std::string& cmd, const std::string& help, const OptionsCategory& cat)
-{
-    Assert(cmd.find('=') == std::string::npos);
-    Assert(cmd.at(0) != '-');
-
-    LOCK(cs_args);
-    m_accept_any_command = false; // latch to false
-    std::map<std::string, Arg>& arg_map = m_available_args[cat];
-    auto ret = arg_map.emplace(cmd, Arg{"", help, ArgsManager::COMMAND});
-    Assert(ret.second); // Fail on duplicate commands
-}
-
 void ArgsManager::AddArg(const std::string& name, const std::string& help, unsigned int flags, const OptionsCategory& cat)
 {
-    Assert((flags & ArgsManager::COMMAND) == 0); // use AddCommand
-
     // Split arg name from its help param
     size_t eq_index = name.find('=');
     if (eq_index == std::string::npos) {
@@ -831,12 +695,12 @@ void PrintExceptionContinue(const std::exception_ptr pex, const char* pszExcepti
 
 fs::path GetDefaultDataDir()
 {
-    // Windows: C:\Users\Username\AppData\Roaming\DashCore
-    // macOS: ~/Library/Application Support/DashCore
-    // Unix-like: ~/.dashcore
+    // Windows: C:\Users\Username\AppData\Roaming\OgvaCore
+    // macOS: ~/Library/Application Support/OgvaCore
+    // Unix-like: ~/.ogvacore
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "DashCore";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "OgvaCore";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -846,28 +710,110 @@ fs::path GetDefaultDataDir()
         pathRet = fs::path(pszHome);
 #ifdef MAC_OSX
     // macOS
-    return pathRet / "Library/Application Support/DashCore";
+    return pathRet / "Library/Application Support/OgvaCore";
 #else
     // Unix-like
-    return pathRet / ".dashcore";
+    return pathRet / ".ogvacore";
 #endif
 #endif
+}
+
+namespace {
+fs::path StripRedundantLastElementsOfPath(const fs::path& path)
+{
+    auto result = path;
+    while (result.filename().string() == ".") {
+        result = result.parent_path();
+    }
+
+    assert(fs::equivalent(result, path));
+    return result;
+}
+} // namespace
+
+static fs::path g_blocks_path_cache_net_specific;
+static fs::path pathCached;
+static fs::path pathCachedNetSpecific;
+static RecursiveMutex csPathCached;
+
+const fs::path &GetBlocksDir()
+{
+    LOCK(csPathCached);
+    fs::path &path = g_blocks_path_cache_net_specific;
+
+    // Cache the path to avoid calling fs::create_directories on every call of
+    // this function
+    if (!path.empty()) return path;
+
+    if (gArgs.IsArgSet("-blocksdir")) {
+        path = fs::system_complete(gArgs.GetArg("-blocksdir", ""));
+        if (!fs::is_directory(path)) {
+            path = "";
+            return path;
+        }
+    } else {
+        path = GetDataDir(false);
+    }
+
+    path /= BaseParams().DataDir();
+    path /= "blocks";
+    fs::create_directories(path);
+    path = StripRedundantLastElementsOfPath(path);
+    return path;
 }
 
 const fs::path &GetDataDir(bool fNetSpecific)
 {
-    return gArgs.GetDataDirPath(fNetSpecific);
+    LOCK(csPathCached);
+    fs::path &path = fNetSpecific ? pathCachedNetSpecific : pathCached;
+
+    // Cache the path to avoid calling fs::create_directories on every call of
+    // this function
+    if (!path.empty()) return path;
+
+    std::string datadir = gArgs.GetArg("-datadir", "");
+    if (!datadir.empty()) {
+        path = fs::system_complete(datadir);
+        if (!fs::is_directory(path)) {
+            path = "";
+            return path;
+        }
+    } else {
+        path = GetDefaultDataDir();
+    }
+    if (fNetSpecific)
+        path /= BaseParams().DataDir();
+
+    if (fs::create_directories(path)) {
+        // This is the first run, create wallets subdirectory too
+        fs::create_directories(path / "wallets");
+    }
+
+    path = StripRedundantLastElementsOfPath(path);
+    return path;
 }
 
 fs::path GetBackupsDir()
 {
-    return gArgs.GetBackupsDirPath();
+    if (!gArgs.IsArgSet("-walletbackupsdir"))
+        return GetDataDir() / "backups";
+
+    return fs::absolute(gArgs.GetArg("-walletbackupsdir", ""));
 }
 
 bool CheckDataDirOption()
 {
     std::string datadir = gArgs.GetArg("-datadir", "");
     return datadir.empty() || fs::is_directory(fs::system_complete(datadir));
+}
+
+void ClearDatadirCache()
+{
+    LOCK(csPathCached);
+
+    pathCached = fs::path();
+    pathCachedNetSpecific = fs::path();
+    g_blocks_path_cache_net_specific = fs::path();
 }
 
 fs::path GetConfigFile(const std::string& confPath)
@@ -1025,7 +971,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
             }
         }
     } else {
-        // Create an empty dash.conf if it does not exist
+        // Create an empty ogva.conf if it does not exist
         FILE* configFile = fopen(GetConfigFile(confPath).string().c_str(), "a");
         if (configFile != nullptr)
             fclose(configFile);
@@ -1033,7 +979,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
     }
 
     // If datadir is changed in .conf file:
-    gArgs.ClearPathCache();
+    ClearDatadirCache();
     if (!CheckDataDirOption()) {
         error = strprintf("specified data directory \"%s\" does not exist.", GetArg("-datadir", ""));
         return false;
@@ -1451,8 +1397,8 @@ std::string CopyrightHolders(const std::string& strPrefix, unsigned int nStartYe
     const auto copyright_devs = strprintf(_(COPYRIGHT_HOLDERS).translated, COPYRIGHT_HOLDERS_SUBSTITUTION);
     std::string strCopyrightHolders = strPrefix + strprintf(" %u-%u ", nStartYear, nEndYear) + copyright_devs;
 
-    // Check for untranslated substitution to make sure Dash Core copyright is not removed by accident
-    if (copyright_devs.find("Dash Core") == std::string::npos) {
+    // Check for untranslated substitution to make sure Ogva Core copyright is not removed by accident
+    if (copyright_devs.find("Ogva Core") == std::string::npos) {
         strCopyrightHolders += "\n" + strPrefix + strprintf(" %u-%u ", 2014, nEndYear) + "The Dash Core developers";
     }
     // Check for untranslated substitution to make sure Bitcoin Core copyright is not removed by accident

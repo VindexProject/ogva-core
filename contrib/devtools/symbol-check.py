@@ -11,7 +11,7 @@ Example usage:
     find ../path/to/binaries -type f -executable | xargs python3 contrib/devtools/symbol-check.py
 '''
 import sys
-from typing import Dict, List
+from typing import Dict
 
 import lief
 
@@ -77,7 +77,7 @@ ELF_INTERPRETER_NAMES: Dict[lief.ELF.ARCH, Dict[lief.ENDIANNESS, str]] = {
 
 # Allowed NEEDED libraries
 ELF_ALLOWED_LIBRARIES = {
-# dashd and dash-qt
+# ogvad and ogva-qt
 'libgcc_s.so.1', # GCC base support
 'libc.so.6', # C library
 'libpthread.so.0', # threading
@@ -92,7 +92,7 @@ ELF_ALLOWED_LIBRARIES = {
 'ld64.so.2', # POWER64 ABIv2 dynamic linker
 'ld-linux-riscv64-lp64d.so.1', # 64-bit RISC-V dynamic linker
 'libz.so.1', # zlib
-# dash-qt only
+# ogva-qt only
 'libxcb.so.1', # part of X11
 'libxcb-shm.so.0', # X11 shared memory extension
 'libxkbcommon.so.0', # keyboard keymapping
@@ -173,7 +173,7 @@ def check_version(max_versions, version, arch) -> bool:
         return ver <= max_versions[lib][arch]
 
 def check_imported_symbols(binary) -> bool:
-    ok: bool = True
+    ok = True
 
     for symbol in binary.imported_symbols:
         if not symbol.imported:
@@ -189,7 +189,7 @@ def check_imported_symbols(binary) -> bool:
     return ok
 
 def check_exported_symbols(binary) -> bool:
-    ok: bool = True
+    ok = True
 
     for symbol in binary.dynamic_symbols:
         if not symbol.exported:
@@ -202,7 +202,7 @@ def check_exported_symbols(binary) -> bool:
     return ok
 
 def check_ELF_libraries(binary) -> bool:
-    ok: bool = True
+    ok = True
     for library in binary.libraries:
         if library not in ELF_ALLOWED_LIBRARIES:
             print(f'{filename}: {library} is not in ALLOWED_LIBRARIES!')
@@ -210,7 +210,7 @@ def check_ELF_libraries(binary) -> bool:
     return ok
 
 def check_MACHO_libraries(binary) -> bool:
-    ok: bool = True
+    ok = True
     for dylib in binary.libraries:
         split = dylib.name.split('/')
         if split[-1] not in MACHO_ALLOWED_LIBRARIES:
@@ -229,7 +229,7 @@ def check_MACHO_sdk(binary) -> bool:
     return False
 
 def check_PE_libraries(binary) -> bool:
-    ok: bool = True
+    ok = True
     for dylib in binary.libraries:
         if dylib not in PE_ALLOWED_LIBRARIES:
             print(f'{dylib} is not in ALLOWED_LIBRARIES!')
@@ -267,7 +267,7 @@ lief.EXE_FORMATS.PE: [
 }
 
 if __name__ == '__main__':
-    retval: int = 0
+    retval = 0
     for filename in sys.argv[1:]:
         try:
             binary = lief.parse(filename)
@@ -277,7 +277,7 @@ if __name__ == '__main__':
                 retval = 1
                 continue
 
-            failed: List[str] = []
+            failed = []
             for (name, func) in CHECKS[etype]:
                 if not func(binary):
                     failed.append(name)

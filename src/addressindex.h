@@ -17,9 +17,6 @@
 #include <tuple>
 
 class CScript;
-struct CAddressIndexKey;
-struct CMempoolAddressDelta;
-struct CMempoolAddressDeltaKey;
 
 enum class AddressType : uint8_t {
     P2PK_OR_P2PKH = 1,
@@ -28,9 +25,6 @@ enum class AddressType : uint8_t {
     UNKNOWN = 0
 };
 template<> struct is_serializable_enum<AddressType> : std::true_type {};
-
-using CAddressIndexEntry = std::pair<CAddressIndexKey, CAmount>;
-using CMempoolAddressDeltaEntry = std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta>;
 
 struct CMempoolAddressDelta
 {

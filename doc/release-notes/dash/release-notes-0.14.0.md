@@ -280,7 +280,7 @@ See detailed [set of changes](https://github.com/dashpay/dash/compare/v0.13.3.0.
 - [`5482083eb`](https://github.com/dashpay/dash/commit/5482083eb) Support passing CDataStream as key into CDBWrapper/CDBBatch/CDBIterator
 - [`c23dfaf57`](https://github.com/dashpay/dash/commit/c23dfaf57) Update qa/rpc-tests/dip4-coinbasemerkleroots.py
 - [`9f2e5d085`](https://github.com/dashpay/dash/commit/9f2e5d085) Use FromHex to deserialize block header
-- [`999848432`](https://github.com/dashpay/dash/commit/999848432) Implement dip4-coinbasemerkleroots.py integration tests
+- [`996848432`](https://github.com/dashpay/dash/commit/996848432) Implement dip4-coinbasemerkleroots.py integration tests
 - [`ade5760a9`](https://github.com/dashpay/dash/commit/ade5760a9) Allow registering MNs without actually starting them
 - [`ef6b6a1e6`](https://github.com/dashpay/dash/commit/ef6b6a1e6) Implement support for GETMNLISTD and MNLISTDIFF P2P message in mininode.py
 - [`585b9c281`](https://github.com/dashpay/dash/commit/585b9c281) Make CBlock.get_merkle_root static

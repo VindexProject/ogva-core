@@ -69,7 +69,7 @@
  *
  * Thread-safe.
  */
-void GetRandBytes(Span<unsigned char> bytes) noexcept;
+void GetRandBytes(unsigned char* buf, int num) noexcept;
 /** Generate a uniform random integer in the range [0..range). Precondition: range > 0 */
 uint64_t GetRand(uint64_t nMax) noexcept;
 /** Generate a uniform random duration in the range [0..max). Precondition: max.count() > 0 */
@@ -98,7 +98,7 @@ bool GetRandBool(double rate);
  *
  * Thread-safe.
  */
-void GetStrongRandBytes(Span<unsigned char> bytes) noexcept;
+void GetStrongRandBytes(unsigned char* buf, int num) noexcept;
 
 /**
  * Gather entropy from various expensive sources, and feed them to the PRNG state.
@@ -156,9 +156,9 @@ public:
     uint64_t rand64() noexcept
     {
         if (requires_seed) RandomSeed();
-        std::array<std::byte, 8> buf;
-        rng.Keystream(buf);
-        return ReadLE64(UCharCast(buf.data()));
+        unsigned char buf[8];
+        rng.Keystream(buf, 8);
+        return ReadLE64(buf);
     }
 
     /** Generate a random (bits)-bit integer. */

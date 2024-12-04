@@ -11,16 +11,14 @@
 #include <memory>
 #include <string>
 
-//! Default value for -daemon option
-static constexpr bool DEFAULT_DAEMON = false;
-//! Default value for -daemonwait option
-static constexpr bool DEFAULT_DAEMONWAIT = false;
-
 class ArgsManager;
 struct NodeContext;
 namespace interfaces {
 struct BlockAndHeaderTipInfo;
 } // namespace interfaces
+namespace boost {
+class thread_group;
+} // namespace boost
 
 /** Interrupt threads */
 void Interrupt(NodeContext& node);
@@ -30,7 +28,7 @@ void InitLogging(const ArgsManager& args);
 //!Parameter interaction: change current parameters depending on various rules
 void InitParameterInteraction(ArgsManager& args);
 
-/** Initialize Dash Core: Basic context setup.
+/** Initialize Ogva Core: Basic context setup.
  *  @note This can be done before daemonization. Do not call Shutdown() if this function fails.
  *  @pre Parameters should be parsed and config file should be read.
  */
@@ -48,7 +46,7 @@ bool AppInitParameterInteraction(const ArgsManager& args);
  */
 bool AppInitSanityChecks();
 /**
- * Lock Dash Core data directory.
+ * Lock Ogva Core data directory.
  * @note This should only be done after daemonization. Do not call Shutdown() if this function fails.
  * @pre Parameters should be parsed and config file should be read, AppInitSanityChecks should have been called.
  */
@@ -58,7 +56,7 @@ bool AppInitLockDataDirectory();
  */
 bool AppInitInterfaces(NodeContext& node);
 /**
- * Dash Core main initialization.
+ * Ogva Core main initialization.
  * @note This should only be done after daemonization. Call Shutdown() if this function fails.
  * @pre Parameters should be parsed and config file should be read, AppInitLockDataDirectory should have been called.
  */

@@ -24,7 +24,7 @@ class HTTPBasicsTest(BitcoinTestFramework):
 
     def setup_chain(self):
         super().setup_chain()
-        # Append rpcauth to dash.conf before initialization
+        # Append rpcauth to ogva.conf before initialization
         rpcauthplatform = "rpcauth=platform-user:dd88fd676186f48553775d6fb5a2d344$bc1f7898698ead19c6ec7ff47055622dd7101478f1ff6444103d3dc03cd77c13"
         # rpcuser : platform-user
         # rpcpassword : password123
@@ -34,7 +34,7 @@ class HTTPBasicsTest(BitcoinTestFramework):
 
         masternodeblskey="masternodeblsprivkey=58af6e39bb4d86b22bda1a02b134c2f5b71caffa1377540b02f7f1ad122f59e0"
 
-        with open(os.path.join(self.options.tmpdir+"/node0", "dash.conf"), 'a', encoding='utf8') as f:
+        with open(os.path.join(self.options.tmpdir+"/node0", "ogva.conf"), 'a', encoding='utf8') as f:
             f.write(masternodeblskey+"\n")
             f.write(rpcauthplatform+"\n")
             f.write(rpcauthoperator+"\n")
@@ -42,7 +42,7 @@ class HTTPBasicsTest(BitcoinTestFramework):
     def run_test(self):
         url = urllib.parse.urlparse(self.nodes[0].url)
 
-        def test_command(method, params, auth, expected_status, should_not_match=False):
+        def test_command(method, params, auth, expexted_status, should_not_match=False):
             conn = http.client.HTTPConnection(url.hostname, url.port)
             conn.connect()
             body = {"method": method}
@@ -51,9 +51,9 @@ class HTTPBasicsTest(BitcoinTestFramework):
             conn.request('POST', '/', json.dumps(body), {"Authorization": "Basic " + str_to_b64str(auth)})
             resp = conn.getresponse()
             if should_not_match:
-                assert resp.status != expected_status
+                assert resp.status != expexted_status
             else:
-                assert_equal(resp.status, expected_status)
+                assert_equal(resp.status, expexted_status)
             conn.close()
 
         whitelisted = ["getassetunlockstatuses",
@@ -112,25 +112,6 @@ class HTTPBasicsTest(BitcoinTestFramework):
 
         self.log.info('Try running a not whitelisted command as the operator...')
         test_command("debug", ["1"], rpcuser_authpair_operator, 200)
-
-
-        self.log.info("Restart node with -rpcexternaluser")
-        self.restart_node(0, extra_args=["-rpcexternaluser=platform-user"])
-
-        external_log_str = "HTTP: Calling handler for external user"
-        expected_log_str = "ThreadRPCServer method="
-        with self.nodes[0].assert_debug_log(expected_msgs=[expected_log_str, external_log_str]):
-            test_command("getbestblockhash", [], rpcuser_authpair_platform, 200)
-        with self.nodes[0].assert_debug_log(expected_msgs=[expected_log_str], unexpected_msgs = [external_log_str]):
-            test_command("getbestblockhash", [], rpcuser_authpair_operator, 200)
-
-        self.log.info("Restart node with multiple external users")
-        self.restart_node(0, extra_args=["-rpcexternaluser=platform-user,operator"])
-        with self.nodes[0].assert_debug_log(expected_msgs=[expected_log_str, external_log_str]):
-            test_command("getbestblockhash", [], rpcuser_authpair_platform, 200)
-        with self.nodes[0].assert_debug_log(expected_msgs=[expected_log_str, external_log_str]):
-            test_command("getbestblockhash", [], rpcuser_authpair_operator, 200)
-
 
 
 if __name__ == '__main__':

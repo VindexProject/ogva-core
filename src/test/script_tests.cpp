@@ -36,7 +36,8 @@ static const unsigned int gFlags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC;
 unsigned int ParseScriptFlags(std::string strFlags);
 std::string FormatScriptFlags(unsigned int flags);
 
-UniValue read_json(const std::string& jsondata)
+UniValue
+read_json(const std::string& jsondata)
 {
     UniValue v;
 
@@ -143,10 +144,10 @@ void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, uint32_t flag
 #if defined(HAVE_CONSENSUS_LIB)
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << tx2;
-    uint32_t libconsensus_flags{flags & dashconsensus_SCRIPT_FLAGS_VERIFY_ALL};
+    uint32_t libconsensus_flags{flags & ogvaconsensus_SCRIPT_FLAGS_VERIFY_ALL};
     if (libconsensus_flags == flags) {
         int expectedSuccessCode = expect ? 1 : 0;
-        BOOST_CHECK_MESSAGE(dashconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size(), 0, libconsensus_flags, nullptr) == expectedSuccessCode, message);
+        BOOST_CHECK_MESSAGE(ogvaconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size(), 0, libconsensus_flags, nullptr) == expectedSuccessCode, message);
     }
 #endif
 }
@@ -1403,8 +1404,8 @@ BOOST_AUTO_TEST_CASE(script_FindAndDelete)
 
 #if defined(HAVE_CONSENSUS_LIB)
 
-/* Test simple (successful) usage of dashconsensus_verify_script */
-BOOST_AUTO_TEST_CASE(dashconsensus_verify_script_returns_true)
+/* Test simple (successful) usage of ogvaconsensus_verify_script */
+BOOST_AUTO_TEST_CASE(ogvaconsensus_verify_script_returns_true)
 {
     unsigned int libconsensus_flags = 0;
     int nIn = 0;
@@ -1419,14 +1420,14 @@ BOOST_AUTO_TEST_CASE(dashconsensus_verify_script_returns_true)
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << spendTx;
 
-    dashconsensus_error err;
-    int result = dashconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size(), nIn, libconsensus_flags, &err);
+    ogvaconsensus_error err;
+    int result = ogvaconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size(), nIn, libconsensus_flags, &err);
     BOOST_CHECK_EQUAL(result, 1);
-    BOOST_CHECK_EQUAL(err, dashconsensus_ERR_OK);
+    BOOST_CHECK_EQUAL(err, ogvaconsensus_ERR_OK);
 }
 
-/* Test dashconsensus_verify_script returns invalid tx index err*/
-BOOST_AUTO_TEST_CASE(dashconsensus_verify_script_tx_index_err)
+/* Test ogvaconsensus_verify_script returns invalid tx index err*/
+BOOST_AUTO_TEST_CASE(ogvaconsensus_verify_script_tx_index_err)
 {
     unsigned int libconsensus_flags = 0;
     int nIn = 3;
@@ -1441,14 +1442,14 @@ BOOST_AUTO_TEST_CASE(dashconsensus_verify_script_tx_index_err)
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << spendTx;
 
-    dashconsensus_error err;
-    int result = dashconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size(), nIn, libconsensus_flags, &err);
+    ogvaconsensus_error err;
+    int result = ogvaconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size(), nIn, libconsensus_flags, &err);
     BOOST_CHECK_EQUAL(result, 0);
-    BOOST_CHECK_EQUAL(err, dashconsensus_ERR_TX_INDEX);
+    BOOST_CHECK_EQUAL(err, ogvaconsensus_ERR_TX_INDEX);
 }
 
-/* Test dashconsensus_verify_script returns tx size mismatch err*/
-BOOST_AUTO_TEST_CASE(dashconsensus_verify_script_tx_size)
+/* Test ogvaconsensus_verify_script returns tx size mismatch err*/
+BOOST_AUTO_TEST_CASE(ogvaconsensus_verify_script_tx_size)
 {
     unsigned int libconsensus_flags = 0;
     int nIn = 0;
@@ -1463,14 +1464,14 @@ BOOST_AUTO_TEST_CASE(dashconsensus_verify_script_tx_size)
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << spendTx;
 
-    dashconsensus_error err;
-    int result = dashconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size() * 2, nIn, libconsensus_flags, &err);
+    ogvaconsensus_error err;
+    int result = ogvaconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size() * 2, nIn, libconsensus_flags, &err);
     BOOST_CHECK_EQUAL(result, 0);
-    BOOST_CHECK_EQUAL(err, dashconsensus_ERR_TX_SIZE_MISMATCH);
+    BOOST_CHECK_EQUAL(err, ogvaconsensus_ERR_TX_SIZE_MISMATCH);
 }
 
-/* Test dashconsensus_verify_script returns invalid tx serialization error */
-BOOST_AUTO_TEST_CASE(dashconsensus_verify_script_tx_serialization)
+/* Test ogvaconsensus_verify_script returns invalid tx serialization error */
+BOOST_AUTO_TEST_CASE(ogvaconsensus_verify_script_tx_serialization)
 {
     unsigned int libconsensus_flags = 0;
     int nIn = 0;
@@ -1485,14 +1486,14 @@ BOOST_AUTO_TEST_CASE(dashconsensus_verify_script_tx_serialization)
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << 0xffffffff;
 
-    dashconsensus_error err;
-    int result = dashconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size(), nIn, libconsensus_flags, &err);
+    ogvaconsensus_error err;
+    int result = ogvaconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size(), nIn, libconsensus_flags, &err);
     BOOST_CHECK_EQUAL(result, 0);
-    BOOST_CHECK_EQUAL(err, dashconsensus_ERR_TX_DESERIALIZE);
+    BOOST_CHECK_EQUAL(err, ogvaconsensus_ERR_TX_DESERIALIZE);
 }
 
-/* Test dashconsensus_verify_script returns invalid flags err */
-BOOST_AUTO_TEST_CASE(dashconsensus_verify_script_invalid_flags)
+/* Test ogvaconsensus_verify_script returns invalid flags err */
+BOOST_AUTO_TEST_CASE(ogvaconsensus_verify_script_invalid_flags)
 {
     unsigned int libconsensus_flags = 1 << 3;
     int nIn = 0;
@@ -1507,10 +1508,10 @@ BOOST_AUTO_TEST_CASE(dashconsensus_verify_script_invalid_flags)
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << spendTx;
 
-    dashconsensus_error err;
-    int result = dashconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size(), nIn, libconsensus_flags, &err);
+    ogvaconsensus_error err;
+    int result = ogvaconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), UCharCast(stream.data()), stream.size(), nIn, libconsensus_flags, &err);
     BOOST_CHECK_EQUAL(result, 0);
-    BOOST_CHECK_EQUAL(err, dashconsensus_ERR_INVALID_FLAGS);
+    BOOST_CHECK_EQUAL(err, ogvaconsensus_ERR_INVALID_FLAGS);
 }
 
 #endif

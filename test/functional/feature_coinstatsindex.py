@@ -23,6 +23,7 @@ from test_framework.messages import (
     CTransaction,
     CTxIn,
     CTxOut,
+    ToHex,
 )
 from test_framework.script import (
     CScript,
@@ -150,7 +151,7 @@ class CoinStatsIndexTest(BitcoinTestFramework):
             assert_equal(res5['block_info'], {
                 'unspendable': 0,
                 'prevout_spent': 500,
-                'new_outputs_ex_coinbase': Decimal('499.99999775'),
+                'new_outputs_ex_coinbase': Decimal('499.99699775'),
                 'coinbase': Decimal('500.00000225'),
                 'unspendables': {
                     'genesis_block': 0,
@@ -179,7 +180,7 @@ class CoinStatsIndexTest(BitcoinTestFramework):
         tx2 = CTransaction()
         tx2.vin.append(CTxIn(COutPoint(int(tx1_txid, 16), n), b''))
         tx2.vout.append(CTxOut(int(20.99 * COIN), CScript([OP_RETURN] + [OP_FALSE]*30)))
-        tx2_hex = self.nodes[0].signrawtransactionwithwallet(tx2.serialize().hex())['hex']
+        tx2_hex = self.nodes[0].signrawtransactionwithwallet(ToHex(tx2))['hex']
         self.nodes[0].sendrawtransaction(tx2_hex)
 
         # Include both txs in a block
@@ -189,16 +190,16 @@ class CoinStatsIndexTest(BitcoinTestFramework):
         for hash_option in index_hash_options:
             # Check all amounts were registered correctly
             res6 = index_node.gettxoutsetinfo(hash_option, 108)
-            assert_equal(res6['total_unspendable_amount'], Decimal('70.98999999'))
+            assert_equal(res6['total_unspendable_amount'], Decimal('70.98996999'))
             assert_equal(res6['block_info'], {
-                'unspendable': Decimal('20.98999999'),
+                'unspendable': Decimal('20.98996999'),
                 'prevout_spent': 511,
-                'new_outputs_ex_coinbase': Decimal('489.99999741'),
+                'new_outputs_ex_coinbase': Decimal('489.99699741'),
                 'coinbase': Decimal('500.01000260'),
                 'unspendables': {
                     'genesis_block': 0,
                     'bip30': 0,
-                    'scripts': Decimal('20.98999999'),
+                    'scripts': Decimal('20.98996999'),
                     'unclaimed_rewards': 0
                 }
             })
@@ -215,12 +216,12 @@ class CoinStatsIndexTest(BitcoinTestFramework):
         block_time = self.nodes[0].getblock(tip)['time'] + 1
         block = create_block(int(tip, 16), cb, block_time)
         block.solve()
-        self.nodes[0].submitblock(block.serialize().hex())
+        self.nodes[0].submitblock(ToHex(block))
         self.sync_all()
 
         for hash_option in index_hash_options:
             res7 = index_node.gettxoutsetinfo(hash_option, 109)
-            assert_equal(res7['total_unspendable_amount'], Decimal('530.98999999'))
+            assert_equal(res7['total_unspendable_amount'], Decimal('530.98996999'))
             assert_equal(res7['block_info'], {
                 'unspendable': 460,
                 'prevout_spent': 0,

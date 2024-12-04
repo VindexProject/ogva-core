@@ -16,25 +16,20 @@
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
-class BlockManager;
 class CBlockIndex;
 class CChainParams;
-class CChainstateHelper;
 class CConnman;
-class CCreditPoolManager;
-class CDeterministicMNManager;
 class CEvoDB;
-class CMNHFManager;
+class CGovernanceManager;
 class CScript;
+class CSporkManager;
 struct LLMQContext;
-struct NodeContext;
 
 namespace Consensus { struct Params; };
 namespace llmq {
 class CChainLocksHandler;
 class CInstantSendManager;
 class CQuorumBlockProcessor;
-class CQuorumManager;
 } // namespace llmq
 
 static const bool DEFAULT_PRINTPRIORITY = false;
@@ -100,7 +95,7 @@ struct CompareTxIterByAncestorCount {
     {
         if (a->GetCountWithAncestors() != b->GetCountWithAncestors())
             return a->GetCountWithAncestors() < b->GetCountWithAncestors();
-        return CompareIteratorByHash()(a, b);
+        return CTxMemPool::CompareIteratorByHash()(a, b);
     }
 };
 
@@ -160,20 +155,15 @@ private:
     // Chain context for the block
     int nHeight;
     int64_t nLockTimeCutoff;
-
-    BlockManager& m_blockman;
-    CCreditPoolManager& m_cpoolman;
-    CChainstateHelper& m_chain_helper;
-    CChainState& m_chainstate;
-    CDeterministicMNManager& m_dmnman;
-    CEvoDB& m_evoDb;
-    CMNHFManager& m_mnhfman;
-    llmq::CChainLocksHandler& m_clhandler;
-    llmq::CInstantSendManager& m_isman;
     const CChainParams& chainparams;
     const CTxMemPool& m_mempool;
-    const llmq::CQuorumBlockProcessor& m_quorum_block_processor;
-    const llmq::CQuorumManager& m_qman;
+    CChainState& m_chainstate;
+    const CSporkManager& spork_manager;
+    CGovernanceManager& governance_manager;
+    const llmq::CQuorumBlockProcessor& quorum_block_processor;
+    llmq::CChainLocksHandler& m_clhandler;
+    llmq::CInstantSendManager& m_isman;
+    CEvoDB& m_evoDb;
 
 public:
     struct Options {
@@ -182,9 +172,10 @@ public:
         CFeeRate blockMinFeeRate;
     };
 
-    explicit BlockAssembler(CChainState& chainstate, const NodeContext& node, const CTxMemPool& mempool, const CChainParams& params);
-    explicit BlockAssembler(CChainState& chainstate, const NodeContext& node, const CTxMemPool& mempool, const CChainParams& params,
-                            const Options& options);
+    explicit BlockAssembler(const CSporkManager& sporkManager, CGovernanceManager& governanceManager,
+                            LLMQContext& llmq_ctx, CEvoDB& evoDb, CChainState& chainstate, const CTxMemPool& mempool, const CChainParams& params);
+    explicit BlockAssembler(const CSporkManager& sporkManager, CGovernanceManager& governanceManager,
+                            LLMQContext& llmq_ctx, CEvoDB& evoDb, CChainState& chainstate, const CTxMemPool& mempool, const CChainParams& params, const Options& options);
 
     /** Construct a new block template with coinbase to scriptPubKeyIn */
     std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn);

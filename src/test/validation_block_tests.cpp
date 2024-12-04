@@ -19,7 +19,6 @@
 #include <random.h>
 #include <script/standard.h>
 #include <spork.h>
-#include <test/util/script.h>
 #include <test/util/setup_common.h>
 #include <util/time.h>
 #include <validation.h>
@@ -36,6 +35,8 @@ struct MinerTestingSetup : public RegTestingSetup {
     void BuildChain(const uint256& root, int height, const unsigned int invalid_rate, const unsigned int branch_rate, const unsigned int max_size, std::vector<std::shared_ptr<const CBlock>>& blocks);
 };
 } // namespace validation_block_tests
+
+static const std::vector<unsigned char> V_OP_TRUE{OP_TRUE};
 
 BOOST_FIXTURE_TEST_SUITE(validation_block_tests, MinerTestingSetup)
 
@@ -71,11 +72,19 @@ std::shared_ptr<CBlock> MinerTestingSetup::Block(const uint256& prev_hash)
     static int i = 0;
     static uint64_t time = Params().GenesisBlock().nTime;
 
-    auto ptemplate = BlockAssembler(m_node.chainman->ActiveChainstate(), m_node, *m_node.mempool, Params()).CreateNewBlock(CScript{} << i++ << OP_TRUE);
+    CScript pubKey;
+    pubKey << i++ << OP_TRUE;
+
+    auto ptemplate = BlockAssembler(*m_node.sporkman, *m_node.govman, *m_node.llmq_ctx, *m_node.evodb, ::ChainstateActive(), *m_node.mempool, Params()).CreateNewBlock(pubKey);
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;
     pblock->nTime = ++time;
 
+    pubKey.clear();
+    {
+        pubKey << OP_HASH160 << ToByteVector(CScriptID(CScript() << OP_TRUE))
+               << OP_EQUAL;
+    }
     // Make the coinbase transaction with two outputs:
     // One zero-value one that has a unique pubkey to make sure that blocks at
     // the same height can have a different hash. Another one that has the
@@ -83,7 +92,7 @@ std::shared_ptr<CBlock> MinerTestingSetup::Block(const uint256& prev_hash)
     // spend
     CMutableTransaction txCoinbase(*pblock->vtx[0]);
     txCoinbase.vout.resize(2);
-    txCoinbase.vout[1].scriptPubKey = P2SH_OP_TRUE;
+    txCoinbase.vout[1].scriptPubKey = pubKey;
     txCoinbase.vout[1].nValue = txCoinbase.vout[0].nValue;
     txCoinbase.vout[0].nValue = 0;
     pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
@@ -168,7 +177,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     const CBlockIndex* initial_tip = nullptr;
     {
         LOCK(cs_main);
-        initial_tip = m_node.chainman->ActiveChain().Tip();
+        initial_tip = ::ChainActive().Tip();
     }
     auto sub = std::make_shared<TestSubscriber>(initial_tip->GetBlockHash());
     RegisterSharedValidationInterface(sub);
@@ -204,7 +213,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     UnregisterSharedValidationInterface(sub);
 
     LOCK(cs_main);
-    BOOST_CHECK_EQUAL(sub->m_expected_tip, m_node.chainman->ActiveChain().Tip()->GetBlockHash());
+    BOOST_CHECK_EQUAL(sub->m_expected_tip, ::ChainActive().Tip()->GetBlockHash());
 }
 
 /**
@@ -238,7 +247,7 @@ BOOST_AUTO_TEST_CASE(mempool_locks_reorg)
 
     // Run the test multiple times
     for (int test_runs = 3; test_runs > 0; --test_runs) {
-        BOOST_CHECK_EQUAL(last_mined->GetHash(), m_node.chainman->ActiveChain().Tip()->GetBlockHash());
+        BOOST_CHECK_EQUAL(last_mined->GetHash(), ::ChainActive().Tip()->GetBlockHash());
 
         // Later on split from here
         const uint256 split_hash{last_mined->hashPrevBlock};
@@ -286,7 +295,7 @@ BOOST_AUTO_TEST_CASE(mempool_locks_reorg)
         {
             LOCK(cs_main);
             for (const auto& tx : txs) {
-                const MempoolAcceptResult result = AcceptToMemoryPool(m_node.chainman->ActiveChainstate(), *m_node.mempool, tx, false /* bypass_limits */);
+                const MempoolAcceptResult result = AcceptToMemoryPool(::ChainstateActive(), *m_node.mempool, tx, false /* bypass_limits */);
                 BOOST_REQUIRE(result.m_result_type == MempoolAcceptResult::ResultType::VALID);
             }
         }
@@ -319,7 +328,7 @@ BOOST_AUTO_TEST_CASE(mempool_locks_reorg)
             }
             LOCK(cs_main);
             // We are done with the reorg, so the tip must have changed
-            assert(tip_init != m_node.chainman->ActiveChain().Tip()->GetBlockHash());
+            assert(tip_init != ::ChainActive().Tip()->GetBlockHash());
         }};
 
         // Submit the reorg in this thread to invalidate and remove the txs from the tx pool
@@ -327,7 +336,7 @@ BOOST_AUTO_TEST_CASE(mempool_locks_reorg)
             ProcessBlock(b);
         }
         // Check that the reorg was eventually successful
-        BOOST_CHECK_EQUAL(last_mined->GetHash(), m_node.chainman->ActiveChain().Tip()->GetBlockHash());
+        BOOST_CHECK_EQUAL(last_mined->GetHash(), ::ChainActive().Tip()->GetBlockHash());
 
         // We can join the other thread, which returns when the reorg was successful
         rpc_thread.join();

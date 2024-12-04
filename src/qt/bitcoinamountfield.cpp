@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2020 The Bitcoin Core developers
+// Copyright (c) 2011-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -41,7 +41,7 @@ class AmountValidator : public QValidator
 public:
     explicit AmountValidator(QObject *parent) :
         QValidator(parent),
-        currentUnit(BitcoinUnits::DASH) {}
+        currentUnit(BitcoinUnits::OGVA) {}
 
     State validate(QString &input, int &pos) const override
     {
@@ -69,7 +69,7 @@ class AmountLineEdit: public QLineEdit
 public:
     explicit AmountLineEdit(QWidget *parent):
         QLineEdit(parent),
-        currentUnit(BitcoinUnits::DASH)
+        currentUnit(BitcoinUnits::OGVA)
     {
         setAlignment(Qt::AlignLeft);
         amountValidator = new AmountValidator(this);
@@ -142,14 +142,14 @@ public:
         ensurePolished();
         const QFontMetrics fm(fontMetrics());
         int h = 0;
-        int w = GUIUtil::TextWidth(fm, BitcoinUnits::format(BitcoinUnits::DASH, BitcoinUnits::maxMoney(), false, BitcoinUnits::SeparatorStyle::ALWAYS));
+        int w = GUIUtil::TextWidth(fm, BitcoinUnits::format(BitcoinUnits::OGVA, BitcoinUnits::maxMoney(), false, BitcoinUnits::SeparatorStyle::ALWAYS));
         w += 2; // cursor blinking space
-        w += GUIUtil::dashThemeActive() ? 24 : 0; // counteract padding from css
+        w += GUIUtil::ogvaThemeActive() ? 24 : 0; // counteract padding from css
         return QSize(w, h);
     }
 
 private:
-    int currentUnit{BitcoinUnits::DASH};
+    int currentUnit{BitcoinUnits::OGVA};
     bool m_allow_empty{true};
     CAmount m_min_amount{CAmount(0)};
     CAmount m_max_amount{BitcoinUnits::maxMoney()};

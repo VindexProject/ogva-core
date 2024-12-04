@@ -13,7 +13,6 @@ from decimal import Decimal
 
 from test_framework.blocktools import (
     create_coinbase,
-    filter_tip_keys,
     NORMAL_GBT_REQUEST_PARAMS,
     TIME_GENESIS_BLOCK,
 )
@@ -196,6 +195,17 @@ class MiningTest(BitcoinTestFramework):
 
         block.nTime += 1
         block.solve()
+
+        def filter_tip_keys(chaintips):
+            """
+            Ogva chaintips rpc returns extra info in each tip (difficulty, chainwork, and
+            forkpoint). Filter down to relevant ones checked in this test.
+            """
+            check_keys = ["hash", "height", "branchlen", "status"]
+            filtered_tips = []
+            for tip in chaintips:
+                filtered_tips.append({k: tip[k] for k in check_keys})
+            return filtered_tips
 
         def chain_tip(b_hash, *, status='headers-only', branchlen=1):
             return {'hash': b_hash, 'height': 202, 'branchlen': branchlen, 'status': status}

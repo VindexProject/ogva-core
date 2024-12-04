@@ -138,10 +138,10 @@ public:
         {
             LOCK2(wallet->cs_wallet, cs_main);
             wallet->GetLegacyScriptPubKeyMan()->AddKeyPubKey(coinbaseKey, coinbaseKey.GetPubKey());
-            wallet->SetLastBlockProcessed(m_node.chainman->ActiveChain().Height(), m_node.chainman->ActiveChain().Tip()->GetBlockHash());
+            wallet->SetLastBlockProcessed(::ChainActive().Height(), ::ChainActive().Tip()->GetBlockHash());
             WalletRescanReserver reserver(*wallet);
             reserver.reserve();
-            CWallet::ScanResult result = wallet->ScanForWalletTransactions(m_node.chainman->ActiveChain().Genesis()->GetBlockHash(),  0 /* start_height */, {} /* max_height */, reserver, true /* fUpdate */);
+            CWallet::ScanResult result = wallet->ScanForWalletTransactions(::ChainActive().Genesis()->GetBlockHash(),  0 /* start_height */, {} /* max_height */, reserver, true /* fUpdate */);
             BOOST_CHECK_EQUAL(result.status, CWallet::ScanResult::SUCCESS);
         }
     }
@@ -165,14 +165,15 @@ public:
         }
         CreateAndProcessBlock({blocktx}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
         LOCK2(wallet->cs_wallet, cs_main);
-        wallet->SetLastBlockProcessed(m_node.chainman->ActiveChain().Height(), m_node.chainman->ActiveChain().Tip()->GetBlockHash());
-        CWalletTx::Confirmation confirm(CWalletTx::Status::CONFIRMED, m_node.chainman->ActiveChain().Height(), m_node.chainman->ActiveChain().Tip()->GetBlockHash(), 1);
+        wallet->SetLastBlockProcessed(::ChainActive().Height(), ::ChainActive().Tip()->GetBlockHash());
+        CWalletTx::Confirmation confirm(CWalletTx::Status::CONFIRMED, ::ChainActive().Height(), ::ChainActive().Tip()->GetBlockHash(), 1);
         it->second.m_confirm = confirm;
         return it->second;
     }
     CompactTallyItem GetTallyItem(const std::vector<CAmount>& vecAmounts)
     {
         CompactTallyItem tallyItem;
+        CTransactionRef tx;
         ReserveDestination reserveDest(wallet.get());
         CAmount nFeeRet;
         int nChangePosRet = -1;
@@ -184,9 +185,7 @@ public:
             BOOST_CHECK(reserveDest.GetReservedDestination(tallyItem.txdest, false));
         }
         for (CAmount nAmount : vecAmounts) {
-            CTransactionRef tx;
-            FeeCalculation fee_calc_out;
-            BOOST_CHECK(wallet->CreateTransaction({{GetScriptForDestination(tallyItem.txdest), nAmount, false}}, tx, nFeeRet, nChangePosRet, strError, coinControl, fee_calc_out));
+            BOOST_CHECK(wallet->CreateTransaction({{GetScriptForDestination(tallyItem.txdest), nAmount, false}}, tx, nFeeRet, nChangePosRet, strError, coinControl));
             {
                 LOCK2(wallet->cs_wallet, cs_main);
                 wallet->CommitTransaction(tx, {}, {});
@@ -232,7 +231,7 @@ BOOST_FIXTURE_TEST_CASE(CTransactionBuilderTest, CTransactionBuilderTestSetup)
     // Tests with single outpoint tallyItem
     {
         CompactTallyItem tallyItem = GetTallyItem({4999});
-        CTransactionBuilder txBuilder(wallet, tallyItem);
+        CTransactionBuilder txBuilder(wallet, tallyItem, *m_node.fee_estimator);
 
         BOOST_CHECK_EQUAL(txBuilder.CountOutputs(), 0);
         BOOST_CHECK_EQUAL(txBuilder.GetAmountInitial(), tallyItem.nAmount);
@@ -269,7 +268,7 @@ BOOST_FIXTURE_TEST_CASE(CTransactionBuilderTest, CTransactionBuilderTestSetup)
     // Tests with multiple outpoint tallyItem
     {
         CompactTallyItem tallyItem = GetTallyItem({10000, 20000, 30000, 40000, 50000});
-        CTransactionBuilder txBuilder(wallet, tallyItem);
+        CTransactionBuilder txBuilder(wallet, tallyItem, *m_node.fee_estimator);
         std::vector<CTransactionBuilderOutput*> vecOutputs;
         bilingual_str strResult;
 

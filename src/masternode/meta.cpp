@@ -9,18 +9,19 @@
 
 #include <sstream>
 
+std::unique_ptr<CMasternodeMetaMan> mmetaman;
+
 const std::string MasternodeMetaStore::SERIALIZATION_VERSION_STRING = "CMasternodeMetaMan-Version-3";
 
-CMasternodeMetaMan::CMasternodeMetaMan() :
-    m_db{std::make_unique<db_type>("mncache.dat", "magicMasternodeCache")}
+CMasternodeMetaMan::CMasternodeMetaMan(bool load_cache) :
+    m_db{std::make_unique<db_type>("mncache.dat", "magicMasternodeCache")},
+    is_valid{
+        [&]() -> bool {
+            assert(m_db != nullptr);
+            return load_cache ? m_db->Load(*this) : m_db->Store(*this);
+        }()
+    }
 {
-}
-
-bool CMasternodeMetaMan::LoadCache(bool load_cache)
-{
-    assert(m_db != nullptr);
-    is_valid = load_cache ? m_db->Load(*this) : m_db->Store(*this);
-    return is_valid;
 }
 
 CMasternodeMetaMan::~CMasternodeMetaMan()

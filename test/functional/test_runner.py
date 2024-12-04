@@ -71,14 +71,11 @@ TEST_EXIT_SKIPPED = 77
 # the output of `git grep unittest.TestCase ./test/functional/test_framework`
 TEST_FRAMEWORK_MODULES = [
     "address",
-    "crypto.bip324_cipher",
     "blocktools",
-    "crypto.chacha20",
-    "crypto.ellswift",
+    "ellswift",
     "key",
-    "crypto.muhash",
-    "crypto.poly1305",
-    "crypto.ripemd160",
+    "muhash",
+    "ripemd160",
     "script",
 ]
 
@@ -92,32 +89,28 @@ EXTENDED_SCRIPTS = [
 BASE_SCRIPTS = [
     # Scripts that are run by default.
     # Longest test should go first, to favor running tests in parallel
-    'feature_dip3_deterministicmns.py --legacy-wallet', # NOTE: needs dash_hash to pass
-    'feature_dip3_deterministicmns.py --descriptors', # NOTE: needs dash_hash to pass
+    'feature_dip3_deterministicmns.py', # NOTE: needs dash_hash to pass
     'feature_llmq_data_recovery.py',
-    'wallet_hd.py --legacy-wallet',
-    'wallet_hd.py --descriptors',
-    'wallet_backup.py --legacy-wallet',
-    'wallet_backup.py --descriptors',
+    'wallet_hd.py',
+    'wallet_backup.py',
     # vv Tests less than 5m vv
     'mining_getblocktemplate_longpoll.py', # FIXME: "socket.error: [Errno 54] Connection reset by peer" on my Mac, same as https://github.com/bitcoin/bitcoin/issues/6651
     'feature_maxuploadtarget.py',
     'feature_block.py', # NOTE: needs dash_hash to pass
-    'rpc_fundrawtransaction.py --legacy-wallet',
-    'rpc_fundrawtransaction.py --legacy-wallet --nohd',
-    'rpc_fundrawtransaction.py --descriptors',
+    'rpc_fundrawtransaction.py',
+    'rpc_fundrawtransaction.py --nohd',
+    'wallet_multiwallet.py --usecli',
     'p2p_quorum_data.py',
     # vv Tests less than 2m vv
     'p2p_instantsend.py',
-    'wallet_basic.py --legacy-wallet',
-    'wallet_basic.py --descriptors',
-    'wallet_labels.py --legacy-wallet',
-    'wallet_labels.py --descriptors',
+    'wallet_basic.py',
+    'wallet_labels.py',
     'p2p_timeouts.py',
     'feature_bip68_sequence.py',
     'mempool_updatefromblock.py',
     'p2p_tx_download.py',
-    'wallet_dump.py --legacy-wallet',
+    'wallet_dump.py',
+    'wallet_listtransactions.py',
     'feature_multikeysporks.py',
     'feature_dip3_v19.py',
     'feature_llmq_signing.py', # NOTE: needs dash_hash to pass
@@ -136,66 +129,49 @@ BASE_SCRIPTS = [
     # vv Tests less than 60s vv
     'p2p_sendheaders.py', # NOTE: needs dash_hash to pass
     'p2p_sendheaders_compressed.py', # NOTE: needs dash_hash to pass
-    'wallet_importmulti.py --legacy-wallet',
+    'wallet_importmulti.py',
     'mempool_limit.py',
     'rpc_txoutproof.py',
-    'wallet_listreceivedby.py --legacy-wallet',
-    'wallet_listreceivedby.py --descriptors',
-    'wallet_abandonconflict.py --legacy-wallet',
-    'wallet_abandonconflict.py --descriptors',
+    'wallet_listreceivedby.py',
+    'wallet_abandonconflict.py',
     'feature_csv_activation.py',
-    'rpc_rawtransaction.py --legacy-wallet',
-    'rpc_rawtransaction.py --descriptors',
+    'rpc_rawtransaction.py',
     'feature_reindex.py',
     'feature_abortnode.py',
     # vv Tests less than 30s vv
-    'rpc_quorum.py --legacy-wallet',
-    'rpc_quorum.py --descriptors',
-    'wallet_keypool_topup.py --legacy-wallet',
-    'wallet_keypool_topup.py --descriptors',
+    'rpc_quorum.py',
+    'wallet_keypool_topup.py',
     'feature_fee_estimation.py',
-    'interface_zmq_dash.py --legacy-wallet',
+    'interface_zmq_ogva.py',
     'interface_zmq.py',
     'rpc_invalid_address_message.py',
     'interface_bitcoin_cli.py',
-    'feature_bind_extra.py',
     'mempool_resurrect.py',
     'wallet_txn_doublespend.py --mineblock',
-    'tool_wallet.py --legacy-wallet',
-    'tool_wallet.py --descriptors',
+    'tool_wallet.py',
     'wallet_txn_clone.py',
     'rpc_getchaintips.py',
     'rpc_misc.py',
     'interface_rest.py',
     'mempool_spend_coinbase.py',
-    'wallet_avoidreuse.py --legacy-wallet',
-    'wallet_avoidreuse.py --descriptors',
+    'wallet_avoidreuse.py',
     'mempool_reorg.py',
     'mempool_persist.py',
-    'wallet_multiwallet.py --legacy-wallet',
-    'wallet_multiwallet.py --descriptors',
-    'wallet_multiwallet.py --usecli',
-    'wallet_createwallet.py --legacy-wallet',
+    'wallet_multiwallet.py',
+    'wallet_createwallet.py',
     'wallet_createwallet.py --usecli',
-    'wallet_createwallet.py --descriptors',
     'wallet_reorgsrestore.py',
-    'wallet_listtransactions.py --legacy-wallet',
-    'wallet_listtransactions.py --descriptors',
-    'wallet_watchonly.py --legacy-wallet',
-    'wallet_watchonly.py --usecli --legacy-wallet',
+    'wallet_watchonly.py',
+    'wallet_watchonly.py --usecli',
     'interface_http.py',
     'interface_rpc.py',
-    'rpc_psbt.py --legacy-wallet',
-    'rpc_psbt.py --descriptors',
+    'rpc_psbt.py',
     'rpc_users.py',
     'rpc_whitelist.py',
     'feature_proxy.py',
-    'rpc_signrawtransaction.py --legacy-wallet',
-    'rpc_signrawtransaction.py --descriptors',
+    'rpc_signrawtransaction.py',
     'p2p_addrv2_relay.py',
-    'wallet_groups.py --legacy-wallet',
-    'wallet_groups.py --descriptors',
-    'p2p_compactblocks_hb.py',
+    'wallet_groups.py',
     'p2p_disconnect_ban.py',
     'feature_addressindex.py',
     'feature_timestampindex.py',
@@ -203,19 +179,13 @@ BASE_SCRIPTS = [
     'rpc_decodescript.py',
     'rpc_blockchain.py',
     'rpc_deprecated.py',
-    'wallet_disable.py --legacy-wallet',
-    'wallet_disable.py --descriptors',
-    'wallet_change_address.py --legacy-wallet',
-    'wallet_change_address.py --descriptors',
+    'wallet_disable.py',
     'p2p_addr_relay.py',
     'p2p_getaddr_caching.py',
     'p2p_getdata.py',
-    'p2p_addrfetch.py',
     'rpc_net.py',
-    'wallet_keypool.py --legacy-wallet',
-    'wallet_keypool_hd.py --legacy-wallet',
-    'wallet_keypool_hd.py --descriptors',
-    'wallet_descriptor.py --descriptors',
+    'wallet_keypool.py',
+    'wallet_keypool_hd.py',
     'p2p_nobloomfilter_messages.py',
     'p2p_filter.py',
     'p2p_blocksonly.py',
@@ -227,74 +197,54 @@ BASE_SCRIPTS = [
     'p2p_invalid_tx.py',
     'feature_assumevalid.py',
     'example_test.py',
-    'wallet_txn_doublespend.py --legacy-wallet',
-    'wallet_txn_doublespend.py --descriptors',
-    'feature_backwards_compatibility.py --legacy-wallet',
-    'feature_backwards_compatibility.py --descriptors',
+    'wallet_txn_doublespend.py',
+    'feature_backwards_compatibility.py',
     'wallet_txn_clone.py --mineblock',
     'feature_notifications.py',
     'rpc_getblockfilter.py',
-    'rpc_getblockfrompeer.py',
     'rpc_invalidateblock.py',
     'feature_txindex.py',
     'feature_utxo_set_hash.py',
     'mempool_packages.py',
     'mempool_package_onemore.py',
-    'rpc_createmultisig.py --legacy-wallet',
-    'rpc_createmultisig.py --descriptors',
+    'rpc_createmultisig.py',
     'rpc_packages.py',
     'feature_versionbits_warning.py',
     'rpc_preciousblock.py',
-    'wallet_importprunedfunds.py --legacy-wallet',
-    'wallet_importprunedfunds.py --descriptors',
+    'wallet_importprunedfunds.py',
     'p2p_leak_tx.py',
     'p2p_eviction.py',
     'rpc_signmessage.py',
     'rpc_generateblock.py',
-    'rpc_generate.py',
-    'wallet_balance.py --legacy-wallet',
-    'wallet_balance.py --descriptors',
-    'feature_nulldummy.py --legacy-wallet',
-    'feature_nulldummy.py --descriptors',
+    'wallet_balance.py',
+    'feature_nulldummy.py',
     'mempool_accept.py',
     'mempool_expiry.py',
-    'wallet_import_rescan.py --legacy-wallet',
-    'wallet_import_with_label.py --legacy-wallet',
-    'wallet_upgradewallet.py --legacy-wallet',
-    'wallet_importdescriptors.py --descriptors',
-    'wallet_mnemonicbits.py --legacy-wallet',
-    # 'wallet_mnemonicbits.py --descriptors', # TODO : implement mnemonics for descriptor wallets
+    'wallet_import_rescan.py',
+    'wallet_import_with_label.py',
+    'wallet_upgradewallet.py',
+    'wallet_mnemonicbits.py',
     'rpc_bind.py --ipv4',
     'rpc_bind.py --ipv6',
     'rpc_bind.py --nonloopback',
     'mining_basic.py',
     'rpc_named_arguments.py',
-    'feature_startupnotify.py',
-    'wallet_listsinceblock.py --legacy-wallet',
-    'wallet_listsinceblock.py --descriptors',
-    'wallet_listdescriptors.py --descriptors',
+    'wallet_listsinceblock.py',
     'p2p_leak.py',
     'p2p_compactblocks.py',
-    'p2p_compactblocks_blocksonly.py',
     'p2p_connect_to_devnet.py',
     'feature_sporks.py',
     'rpc_getblockstats.py',
-    'feature_bind_port_externalip.py',
-    'wallet_encryption.py --legacy-wallet',
-    'wallet_encryption.py --descriptors',
-    'wallet_upgradetohd.py --legacy-wallet',
+    'wallet_encryption.py',
+    'wallet_upgradetohd.py',
     'feature_dersig.py',
     'feature_cltv.py',
     'feature_new_quorum_type_activation.py',
     'feature_governance_objects.py',
-    'feature_governance.py --legacy-wallet',
-    'feature_governance_cl.py --legacy-wallet',
+    'feature_governance.py',
     'rpc_uptime.py',
-    'feature_discover.py',
-    'wallet_resendwallettransactions.py --legacy-wallet',
-    'wallet_resendwallettransactions.py --descriptors',
-    'wallet_fallbackfee.py --legacy-wallet',
-    'wallet_fallbackfee.py --descriptors',
+    'wallet_resendwallettransactions.py',
+    'wallet_fallbackfee.py',
     'rpc_dumptxoutset.py',
     'feature_minchainwork.py',
     'rpc_estimatefee.py',
@@ -305,35 +255,25 @@ BASE_SCRIPTS = [
     'rpc_mnauth.py',
     'rpc_verifyislock.py',
     'rpc_verifychainlock.py',
-    'wallet_create_tx.py --legacy-wallet',
-    'wallet_send.py --legacy-wallet',
-    'wallet_send.py --descriptors',
-    'wallet_create_tx.py --descriptors',
+    'wallet_create_tx.py',
     'p2p_fingerprint.py',
     'rpc_platform_filter.py',
     'rpc_wipewallettxes.py',
     'feature_dip0020_activation.py',
     'feature_uacomment.py',
-    'wallet_coinbase_category.py --legacy-wallet',
-    'wallet_coinbase_category.py --descriptors',
+    'wallet_coinbase_category.py',
     'feature_filelock.py',
     'feature_loadblock.py',
-    'p2p_dos_header_tree.py',
-    'p2p_add_connections.py',
-    'feature_bind_port_discover.py',
     'p2p_blockfilters.py',
     'p2p_message_capture.py',
-    'feature_addrman.py',
     'feature_asmap.py',
     'feature_includeconf.py',
     'mempool_unbroadcast.py',
     'mempool_compatibility.py',
     'rpc_deriveaddresses.py',
     'rpc_deriveaddresses.py --usecli',
-    'p2p_ping.py',
     'rpc_scantxoutset.py',
     'feature_logging.py',
-    'feature_anchors.py',
     'feature_coinstatsindex.py',
     'wallet_orphanedreward.py',
     'p2p_node_network_limited.py',
@@ -341,12 +281,11 @@ BASE_SCRIPTS = [
     'feature_blocksdir.py',
     'wallet_startup.py',
     'p2p_i2p_ports.py',
-    'p2p_i2p_sessions.py',
     'feature_config_args.py',
     'feature_settings.py',
     'rpc_getdescriptorinfo.py',
-    'rpc_addresses_deprecation.py',
-    'rpc_getpeerinfo_deprecation.py',
+    'rpc_getaddressinfo_labels_purpose_deprecation.py',
+    'rpc_getaddressinfo_label_deprecation.py',
     'rpc_help.py',
     'feature_help.py',
     'feature_blockfilterindex_prune.py'
@@ -395,7 +334,7 @@ def main():
         GREEN = ("", "")
         RED = ("", "")
 
-    # args to be passed on always start with two dashes; tests are the remaining unknown args
+    # args to be passed on always start with two ogvaes; tests are the remaining unknown args
     tests = [arg for arg in unknown_args if arg[:2] != "--"]
     passon_args = [arg for arg in unknown_args if arg[:2] == "--"]
 
@@ -502,11 +441,11 @@ def main():
 def run_tests(*, test_list, src_dir, build_dir, tmpdir, jobs=1, attempts=1, enable_coverage=False, args=None, combined_logs_len=0,failfast=False, use_term_control):
     args = args or []
 
-    # Warn if dashd is already running
+    # Warn if ogvad is already running
     try:
         # pgrep exits with code zero when one or more matching processes found
-        if subprocess.run(["pgrep", "-x", "dashd"], stdout=subprocess.DEVNULL).returncode == 0:
-            print("%sWARNING!%s There is already a dashd process running on this system. Tests may fail unexpectedly due to resource contention!" % (BOLD[1], BOLD[0]))
+        if subprocess.run(["pgrep", "-x", "ogvad"], stdout=subprocess.DEVNULL).returncode == 0:
+            print("%sWARNING!%s There is already a ogvad process running on this system. Tests may fail unexpectedly due to resource contention!" % (BOLD[1], BOLD[0]))
     except OSError:
         # pgrep not supported
         pass
@@ -805,7 +744,7 @@ class RPCCoverage():
     Coverage calculation works by having each test script subprocess write
     coverage files into a particular directory. These files contain the RPC
     commands invoked during testing, as well as a complete listing of RPC
-    commands per `dash-cli help` (`rpc_interface.txt`).
+    commands per `ogva-cli help` (`rpc_interface.txt`).
 
     After all tests complete, the commands run are combined and diff'd against
     the complete list to calculate uncovered RPC commands.
@@ -840,16 +779,14 @@ class RPCCoverage():
         Return a set of currently untested RPC commands.
 
         """
-        # This is shared from `test/functional/test_framework/coverage.py`
+        # This is shared from `test/functional/test-framework/coverage.py`
         reference_filename = 'rpc_interface.txt'
         coverage_file_prefix = 'coverage.'
 
         coverage_ref_filename = os.path.join(self.dir, reference_filename)
         coverage_filenames = set()
         all_cmds = set()
-        # Consider RPC generate covered, because it is overloaded in
-        # test_framework/test_node.py and not seen by the coverage check.
-        covered_cmds = set({'generate'})
+        covered_cmds = set()
 
         if not os.path.isfile(coverage_ref_filename):
             raise RuntimeError("No coverage reference found")

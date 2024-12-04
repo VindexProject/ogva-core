@@ -16,12 +16,10 @@ class UniValue;
 class CBlockIndex;
 class CDeterministicMNList;
 class CDeterministicMN;
-class ChainstateManager;
 
 namespace llmq {
 class CFinalCommitment;
 class CQuorumBlockProcessor;
-class CQuorumManager;
 } // namespace llmq
 
 class CSimplifiedMNListEntry
@@ -83,10 +81,11 @@ public:
         }
         if (obj.nVersion == BASIC_BLS_VERSION) {
             READWRITE(obj.nType);
-            if (obj.nType == MnType::Evo) {
-                READWRITE(obj.platformHTTPPort);
-                READWRITE(obj.platformNodeID);
-            }
+            // Disable EvoNodes
+            // if (obj.nType == MnType::Evo) {
+            //     READWRITE(obj.platformHTTPPort);
+            //     READWRITE(obj.platformNodeID);
+            // }
         }
     }
 
@@ -166,13 +165,12 @@ public:
 
     bool BuildQuorumsDiff(const CBlockIndex* baseBlockIndex, const CBlockIndex* blockIndex,
                           const llmq::CQuorumBlockProcessor& quorum_block_processor);
-    void BuildQuorumChainlockInfo(const llmq::CQuorumManager& qman, const CBlockIndex* blockIndex);
+    void BuildQuorumChainlockInfo(const CBlockIndex* blockIndex);
 
     [[nodiscard]] UniValue ToJson(bool extended = false) const;
 };
 
-bool BuildSimplifiedMNListDiff(CDeterministicMNManager& dmnman, const ChainstateManager& chainman, const llmq::CQuorumBlockProcessor& qblockman,
-                               const llmq::CQuorumManager& qman, const uint256& baseBlockHash, const uint256& blockHash,
-                               CSimplifiedMNListDiff& mnListDiffRet, std::string& errorRet, bool extended = false);
+bool BuildSimplifiedMNListDiff(const uint256& baseBlockHash, const uint256& blockHash, CSimplifiedMNListDiff& mnListDiffRet,
+                               const llmq::CQuorumBlockProcessor& quorum_block_processor, std::string& errorRet, bool extended = false);
 
 #endif // BITCOIN_EVO_SIMPLIFIEDMNS_H

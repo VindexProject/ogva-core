@@ -8,7 +8,6 @@
 #include <coinjoin/server.h>
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
-#include <rpc/server_util.h>
 #include <rpc/util.h>
 #include <util/strencodings.h>
 
@@ -22,9 +21,9 @@
 #include <univalue.h>
 
 #ifdef ENABLE_WALLET
-static RPCHelpMan coinjoin()
+static UniValue coinjoin(const JSONRPCRequest& request)
 {
-            return RPCHelpMan{"coinjoin",
+            RPCHelpMan{"coinjoin",
                 "\nAvailable commands:\n"
                 "  start       - Start mixing\n"
                 "  stop        - Stop mixing\n"
@@ -34,16 +33,13 @@ static RPCHelpMan coinjoin()
                 },
                 RPCResults{},
                 RPCExamples{""},
-                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+            }.Check(request);
+
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     if (!wallet) return NullUniValue;
 
-    const NodeContext& node = EnsureAnyNodeContext(request.context);
-
-    if (node.mn_activeman) {
+    if (fMasternodeMode)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Client-side mixing is not supported on masternodes");
-    }
 
     if (!CCoinJoinClientOptions::IsEnabled()) {
         if (!gArgs.GetBoolArg("-enablecoinjoin", true)) {
@@ -56,6 +52,7 @@ static RPCHelpMan coinjoin()
         }
     }
 
+    const NodeContext& node = EnsureAnyNodeContext(request.context);
     auto cj_clientman = node.coinjoin_loader->walletman().Get(wallet->GetName());
     CHECK_NONFATAL(cj_clientman != nullptr);
 
@@ -70,10 +67,9 @@ static RPCHelpMan coinjoin()
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Mixing has been started already.");
         }
 
-        ChainstateManager& chainman = EnsureChainman(node);
         CTxMemPool& mempool = EnsureMemPool(node);
-        CConnman& connman = EnsureConnman(node);
-        bool result = cj_clientman->DoAutomaticDenominating(chainman.ActiveChainstate(), connman, mempool);
+        CBlockPolicyEstimator& fee_estimator = EnsureFeeEstimator(node);
+        bool result = cj_clientman->DoAutomaticDenominating(*node.connman, fee_estimator, mempool);
         return "Mixing " + (result ? "started successfully" : ("start failed: " + cj_clientman->GetStatuses().original + ", will retry"));
     }
 
@@ -88,28 +84,23 @@ static RPCHelpMan coinjoin()
     }
 
     return "Unknown command, please see \"help coinjoin\"";
-},
-    };
 }
 #endif // ENABLE_WALLET
 
-static RPCHelpMan getpoolinfo()
+static UniValue getpoolinfo(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getpoolinfo",
+    throw std::runtime_error(
+            RPCHelpMan{"getpoolinfo",
                 "DEPRECATED. Please use getcoinjoininfo instead.\n",
                 {},
                 RPCResults{},
-                RPCExamples{""},
-                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-        throw JSONRPCError(RPC_METHOD_DEPRECATED, "Please use getcoinjoininfo instead");
-},
-    };
+                RPCExamples{""}}
+            .ToString());
 }
 
-static RPCHelpMan getcoinjoininfo()
+static UniValue getcoinjoininfo(const JSONRPCRequest& request)
 {
-            return RPCHelpMan{"getcoinjoininfo",
+            RPCHelpMan{"getcoinjoininfo",
                 "Returns an object containing an information about CoinJoin settings and state.\n",
                 {},
                 {
@@ -153,12 +144,12 @@ static RPCHelpMan getcoinjoininfo()
                     HelpExampleCli("getcoinjoininfo", "")
             + HelpExampleRpc("getcoinjoininfo", "")
                 },
-                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    UniValue obj(UniValue::VOBJ);
+            }.Check(request);
 
+    UniValue obj(UniValue::VOBJ);
     const NodeContext& node = EnsureAnyNodeContext(request.context);
-    if (node.mn_activeman) {
+
+    if (fMasternodeMode) {
         node.cj_ctx->server->GetJsonInfo(obj);
         return obj;
     }
@@ -183,20 +174,17 @@ static RPCHelpMan getcoinjoininfo()
 #endif // ENABLE_WALLET
 
     return obj;
-},
-    };
 }
-
 void RegisterCoinJoinRPCCommands(CRPCTable &t)
 {
 // clang-format off
 static const CRPCCommand commands[] =
     { //  category              name                      actor (function)         argNames
         //  --------------------- ------------------------  ---------------------------------
-        { "dash",               "getpoolinfo",            &getpoolinfo,            {} },
-        { "dash",               "getcoinjoininfo",        &getcoinjoininfo,        {} },
+        { "ogva",               "getpoolinfo",            &getpoolinfo,            {} },
+        { "ogva",               "getcoinjoininfo",        &getcoinjoininfo,        {} },
 #ifdef ENABLE_WALLET
-        { "dash",               "coinjoin",               &coinjoin,               {"command"} },
+        { "ogva",               "coinjoin",               &coinjoin,               {} },
 #endif // ENABLE_WALLET
 };
 // clang-format on

@@ -22,17 +22,13 @@
 #include <llmq/context.h>
 #include <node/blockstorage.h>
 #include <node/coinstats.h>
-#include <net.h>
-#include <net_processing.h>
 #include <node/context.h>
 #include <node/utxo_snapshot.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
-#include <rpc/index_util.h>
 #include <rpc/server.h>
-#include <rpc/server_util.h>
 #include <rpc/util.h>
 #include <script/descriptor.h>
 #include <streams.h>
@@ -47,11 +43,9 @@
 #include <versionbits.h>
 #include <warnings.h>
 
-#include <evo/assetlocktx.h>
+#include <evo/specialtx.h>
 #include <evo/cbtx.h>
 #include <evo/evodb.h>
-#include <evo/mnhftx.h>
-#include <evo/specialtx.h>
 
 #include <llmq/chainlocks.h>
 #include <llmq/instantsend.h>
@@ -77,6 +71,68 @@ static std::condition_variable cond_blockchange;
 static CUpdatedBlock latestblock GUARDED_BY(cs_blockchange);
 
 extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, CTxMemPool& mempool, CChainState& active_chainstate, llmq::CChainLocksHandler& clhandler, llmq::CInstantSendManager& isman, UniValue& entry);
+
+NodeContext& EnsureAnyNodeContext(const CoreContext& context)
+{
+    auto* const node_context = GetContext<NodeContext>(context);
+    if (!node_context) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Node context not found");
+    }
+    return *node_context;
+}
+
+CTxMemPool& EnsureMemPool(const NodeContext& node)
+{
+    if (!node.mempool) {
+        throw JSONRPCError(RPC_CLIENT_MEMPOOL_DISABLED, "Mempool disabled or instance not found");
+    }
+    return *node.mempool;
+}
+
+CTxMemPool& EnsureAnyMemPool(const CoreContext& context)
+{
+    return EnsureMemPool(EnsureAnyNodeContext(context));
+}
+
+ChainstateManager& EnsureChainman(const NodeContext& node)
+{
+    if (!node.chainman) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Node chainman not found");
+    }
+    WITH_LOCK(::cs_main, CHECK_NONFATAL(std::addressof(g_chainman) == std::addressof(*node.chainman)));
+    return *node.chainman;
+}
+
+ChainstateManager& EnsureAnyChainman(const CoreContext& context)
+{
+    return EnsureChainman(EnsureAnyNodeContext(context));
+}
+
+CBlockPolicyEstimator& EnsureFeeEstimator(const NodeContext& node)
+{
+    if (!node.fee_estimator) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Fee estimation disabled");
+    }
+    return *node.fee_estimator;
+}
+
+CBlockPolicyEstimator& EnsureAnyFeeEstimator(const CoreContext& context)
+{
+    return EnsureFeeEstimator(EnsureAnyNodeContext(context));
+}
+
+LLMQContext& EnsureLLMQContext(const NodeContext& node)
+{
+    if (!node.llmq_ctx) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Node LLMQ context not found");
+    }
+    return *node.llmq_ctx;
+}
+
+LLMQContext& EnsureAnyLLMQContext(const CoreContext& context)
+{
+    return EnsureLLMQContext(EnsureAnyNodeContext(context));
+}
 
 /* Calculate the difficulty for a given block index.
  */
@@ -162,24 +218,19 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
 
     result.pushKV("size", (int)::GetSerializeSize(block, PROTOCOL_VERSION));
     UniValue txs(UniValue::VARR);
-    if (txDetails) {
-        CBlockUndo blockUndo;
-        const bool have_undo = !IsBlockPruned(blockindex) && UndoReadFromDisk(blockUndo, blockindex);
-        for (size_t i = 0; i < block.vtx.size(); ++i) {
-            const CTransactionRef& tx = block.vtx.at(i);
-            // coinbase transaction (i == 0) doesn't have undo data
-            const CTxUndo* txundo = (have_undo && i) ? &blockUndo.vtxundo.at(i - 1) : nullptr;
+    for(const auto& tx : block.vtx)
+    {
+        if(txDetails)
+        {
             UniValue objTx(UniValue::VOBJ);
-            TxToUniv(*tx, uint256(), objTx, true, txundo);
+            TxToUniv(*tx, uint256(), objTx, true);
             bool fLocked = isman.IsLocked(tx->GetHash());
             objTx.pushKV("instantlock", fLocked || result["chainlock"].get_bool());
             objTx.pushKV("instantlock_internal", fLocked);
             txs.push_back(objTx);
         }
-    } else {
-        for (const CTransactionRef& tx : block.vtx) {
+        else
             txs.push_back(tx->GetHash().GetHex());
-        }
     }
     result.pushKV("tx", txs);
     if (!block.vtx[0]->vExtraPayload.empty()) {
@@ -191,9 +242,9 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     return result;
 }
 
-static RPCHelpMan getblockcount()
+static UniValue getblockcount(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getblockcount",
+    RPCHelpMan{"getblockcount",
         "\nReturns the height of the most-work fully-validated chain.\n"
         "The genesis block has height 0.\n",
         {},
@@ -203,18 +254,16 @@ static RPCHelpMan getblockcount()
             HelpExampleCli("getblockcount", "")
     + HelpExampleRpc("getblockcount", "")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
     LOCK(cs_main);
     return chainman.ActiveChain().Height();
-},
-    };
 }
 
-static RPCHelpMan getbestblockhash()
+static UniValue getbestblockhash(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getbestblockhash",
+    RPCHelpMan{"getbestblockhash",
         "\nReturns the hash of the best (tip) block in the most-work fully-validated chain.\n",
         {},
         RPCResult{
@@ -223,18 +272,16 @@ static RPCHelpMan getbestblockhash()
             HelpExampleCli("getbestblockhash", "")
     + HelpExampleRpc("getbestblockhash", "")
         },
-    [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
     LOCK(cs_main);
     return chainman.ActiveChain().Tip()->GetBlockHash().GetHex();
-},
-    };
 }
 
-static RPCHelpMan getbestchainlock()
+static UniValue getbestchainlock(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getbestchainlock",
+    RPCHelpMan{"getbestchainlock",
         "\nReturns information about the best ChainLock. Throws an error if there is no known ChainLock yet.",
         {},
         RPCResult{
@@ -249,8 +296,7 @@ static RPCHelpMan getbestchainlock()
             HelpExampleCli("getbestchainlock", "")
             + HelpExampleRpc("getbestchainlock", "")
         },
-    [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
     UniValue result(UniValue::VOBJ);
 
     const NodeContext& node = EnsureAnyNodeContext(request.context);
@@ -268,8 +314,6 @@ static RPCHelpMan getbestchainlock()
     LOCK(cs_main);
     result.pushKV("known_block", chainman.m_blockman.LookupBlockIndex(clsig.getBlockHash()) != nullptr);
     return result;
-},
-    };
 }
 
 void RPCNotifyBlockChange(const CBlockIndex* pindex)
@@ -282,9 +326,9 @@ void RPCNotifyBlockChange(const CBlockIndex* pindex)
     cond_blockchange.notify_all();
 }
 
-static RPCHelpMan waitfornewblock()
+static UniValue waitfornewblock(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"waitfornewblock",
+    RPCHelpMan{"waitfornewblock",
         "\nWaits for a specific new block and returns useful info about it.\n"
         "\nReturns the current block on timeout or exit.\n",
         {
@@ -300,8 +344,7 @@ static RPCHelpMan waitfornewblock()
             HelpExampleCli("waitfornewblock", "1000")
     + HelpExampleRpc("waitfornewblock", "1000")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
     int timeout = 0;
     if (!request.params[0].isNull())
         timeout = request.params[0].get_int();
@@ -320,13 +363,11 @@ static RPCHelpMan waitfornewblock()
     ret.pushKV("hash", block.hash.GetHex());
     ret.pushKV("height", block.height);
     return ret;
-},
-    };
 }
 
-static RPCHelpMan waitforblock()
+static UniValue waitforblock(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"waitforblock",
+    RPCHelpMan{"waitforblock",
         "\nWaits for a specific new block and returns useful info about it.\n"
         "\nReturns the current block on timeout or exit.\n",
         {
@@ -343,8 +384,7 @@ static RPCHelpMan waitforblock()
             HelpExampleCli("waitforblock", "\"0000000000079f8ef3d2c688c244eb7a4570b24c9ed7b4a8c619eb02596f8862\" 1000")
     + HelpExampleRpc("waitforblock", "\"0000000000079f8ef3d2c688c244eb7a4570b24c9ed7b4a8c619eb02596f8862\", 1000")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
     int timeout = 0;
 
     uint256 hash(ParseHashV(request.params[0], "blockhash"));
@@ -366,13 +406,11 @@ static RPCHelpMan waitforblock()
     ret.pushKV("hash", block.hash.GetHex());
     ret.pushKV("height", block.height);
     return ret;
-},
-    };
 }
 
-static RPCHelpMan waitforblockheight()
+static UniValue waitforblockheight(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"waitforblockheight",
+    RPCHelpMan{"waitforblockheight",
         "\nWaits for (at least) block height and returns the height and hash\n"
         "of the current tip.\n"
         "\nReturns the current block on timeout or exit.\n",
@@ -390,8 +428,7 @@ static RPCHelpMan waitforblockheight()
             HelpExampleCli("waitforblockheight", "100 1000")
     + HelpExampleRpc("waitforblockheight", "100, 1000")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
     int timeout = 0;
 
     int height = request.params[0].get_int();
@@ -412,13 +449,11 @@ static RPCHelpMan waitforblockheight()
     ret.pushKV("hash", block.hash.GetHex());
     ret.pushKV("height", block.height);
     return ret;
-},
-    };
 }
 
-static RPCHelpMan syncwithvalidationinterfacequeue()
+static UniValue syncwithvalidationinterfacequeue(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"syncwithvalidationinterfacequeue",
+    RPCHelpMan{"syncwithvalidationinterfacequeue",
         "\nWaits for the validation interface queue to catch up on everything that was there when we entered this function.\n",
         {},
         RPCResult{RPCResult::Type::NONE, "", ""},
@@ -426,17 +461,14 @@ static RPCHelpMan syncwithvalidationinterfacequeue()
             HelpExampleCli("syncwithvalidationinterfacequeue","")
     + HelpExampleRpc("syncwithvalidationinterfacequeue","")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
     SyncWithValidationInterfaceQueue();
     return NullUniValue;
-},
-    };
 }
 
-static RPCHelpMan getdifficulty()
+static UniValue getdifficulty(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getdifficulty",
+    RPCHelpMan{"getdifficulty",
         "\nReturns the proof-of-work difficulty as a multiple of the minimum difficulty.\n",
         {},
         RPCResult{
@@ -445,14 +477,11 @@ static RPCHelpMan getdifficulty()
             HelpExampleCli("getdifficulty", "")
     + HelpExampleRpc("getdifficulty", "")
         },
-    [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
 
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
     LOCK(cs_main);
     return GetDifficulty(chainman.ActiveChain().Tip());
-},
-    };
 }
 
 static std::vector<RPCResult> MempoolEntryDescription() { return {
@@ -522,9 +551,9 @@ static void entryToJSON(const CTxMemPool& pool, UniValue& info, const CTxMemPool
 
     UniValue spent(UniValue::VARR);
     const CTxMemPool::txiter& it = pool.mapTx.find(tx.GetHash());
-    const CTxMemPoolEntry::Children& children = it->GetMemPoolChildrenConst();
-    for (const CTxMemPoolEntry& child : children) {
-        spent.push_back(child.GetTx().GetHash().ToString());
+    const CTxMemPool::setEntries& setChildren = pool.GetMemPoolChildren(it);
+    for (CTxMemPool::txiter childiter : setChildren) {
+        spent.push_back(childiter->GetTx().GetHash().ToString());
     }
 
     info.pushKV("spentby", spent);
@@ -559,9 +588,9 @@ UniValue MempoolToJSON(const CTxMemPool& pool, llmq::CInstantSendManager* isman,
     }
 }
 
-static RPCHelpMan getrawmempool()
+static UniValue getrawmempool(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getrawmempool",
+    RPCHelpMan{"getrawmempool",
         "\nReturns all transaction ids in memory pool as a json array of string transaction ids.\n"
         "\nHint: use getmempoolentry to fetch a specific transaction from the mempool.\n",
         {
@@ -583,8 +612,8 @@ static RPCHelpMan getrawmempool()
             HelpExampleCli("getrawmempool", "true")
     + HelpExampleRpc("getrawmempool", "true")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     bool fVerbose = false;
     if (!request.params[0].isNull())
         fVerbose = request.params[0].get_bool();
@@ -593,13 +622,11 @@ static RPCHelpMan getrawmempool()
     const CTxMemPool& mempool = EnsureMemPool(node);
     LLMQContext& llmq_ctx = EnsureLLMQContext(node);
     return MempoolToJSON(mempool, llmq_ctx.isman, fVerbose);
-},
-    };
 }
 
-static RPCHelpMan getmempoolancestors()
+static UniValue getmempoolancestors(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getmempoolancestors",
+    RPCHelpMan{"getmempoolancestors",
         "\nIf txid is in the mempool, returns all in-mempool ancestors.\n",
         {
             {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id (must be in mempool)"},
@@ -619,8 +646,8 @@ static RPCHelpMan getmempoolancestors()
             HelpExampleCli("getmempoolancestors", "\"mytxid\"")
     + HelpExampleRpc("getmempoolancestors", "\"mytxid\"")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     bool fVerbose = false;
     if (!request.params[1].isNull())
         fVerbose = request.params[1].get_bool();
@@ -660,13 +687,11 @@ static RPCHelpMan getmempoolancestors()
         }
         return o;
     }
-},
-    };
 }
 
-static RPCHelpMan getmempooldescendants()
+static UniValue getmempooldescendants(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getmempooldescendants",
+    RPCHelpMan{"getmempooldescendants",
         "\nIf txid is in the mempool, returns all in-mempool descendants.\n",
         {
             {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id (must be in mempool)"},
@@ -686,8 +711,8 @@ static RPCHelpMan getmempooldescendants()
             HelpExampleCli("getmempooldescendants", "\"mytxid\"")
     + HelpExampleRpc("getmempooldescendants", "\"mytxid\"")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     bool fVerbose = false;
     if (!request.params[1].isNull())
         fVerbose = request.params[1].get_bool();
@@ -728,13 +753,11 @@ static RPCHelpMan getmempooldescendants()
         }
         return o;
     }
-},
-    };
 }
 
-static RPCHelpMan getmempoolentry()
+static UniValue getmempoolentry(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getmempoolentry",
+    RPCHelpMan{"getmempoolentry",
         "\nReturns mempool data for given transaction\n",
         {
             {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id (must be in mempool)"},
@@ -745,8 +768,7 @@ static RPCHelpMan getmempoolentry()
             HelpExampleCli("getmempoolentry", "\"mytxid\"")
     + HelpExampleRpc("getmempoolentry", "\"mytxid\"")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
 
     uint256 hash(ParseHashV(request.params[0], "parameter 1"));
 
@@ -765,59 +787,11 @@ static RPCHelpMan getmempoolentry()
     LLMQContext& llmq_ctx = EnsureLLMQContext(node);
     entryToJSON(mempool, info, e, llmq_ctx.isman);
     return info;
-},
-    };
 }
 
-static RPCHelpMan getblockfrompeer()
+static UniValue getblockhashes(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{
-        "getblockfrompeer",
-        "\nAttempt to fetch block from a given peer.\n"
-        "\nWe must have the header for this block, e.g. using submitheader.\n"
-        "\nReturns {} if a block-request was successfully scheduled\n",
-        {
-            {"block_hash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash to try to fetch"},
-            {"peer_id", RPCArg::Type::NUM, RPCArg::Optional::NO, "The peer to fetch it from (see getpeerinfo for peer IDs)"},
-        },
-        RPCResult{RPCResult::Type::OBJ, "", "",
-        {
-            {RPCResult::Type::STR, "warnings", /*optional=*/true, "any warnings"},
-        }},
-        RPCExamples{
-            HelpExampleCli("getblockfrompeer", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\" 0")
-            + HelpExampleRpc("getblockfrompeer", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\" 0")
-        },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    const NodeContext& node = EnsureAnyNodeContext(request.context);
-    ChainstateManager& chainman = EnsureChainman(node);
-    PeerManager& peerman = EnsurePeerman(node);
-
-    const uint256& block_hash{ParseHashV(request.params[0], "block_hash")};
-    const NodeId peer_id{request.params[1].get_int64()};
-
-    const CBlockIndex* const index = WITH_LOCK(cs_main, return chainman.m_blockman.LookupBlockIndex(block_hash););
-
-    if (!index) {
-        throw JSONRPCError(RPC_MISC_ERROR, "Block header missing");
-    }
-
-    UniValue result = UniValue::VOBJ;
-
-    if (index->nStatus & BLOCK_HAVE_DATA) {
-        result.pushKV("warnings", "Block already downloaded");
-    } else if (const auto err{peerman.FetchBlock(peer_id, *index)}) {
-        throw JSONRPCError(RPC_MISC_ERROR, err.value());
-    }
-    return result;
-},
-    };
-}
-
-static RPCHelpMan getblockhashes()
-{
-    return RPCHelpMan{"getblockhashes",
+    RPCHelpMan{"getblockhashes",
         "\nReturns array of hashes of blocks within the timestamp range provided.\n",
         {
             {"high", RPCArg::Type::NUM, RPCArg::Optional::NO, "The newer block timestamp"},
@@ -830,13 +804,13 @@ static RPCHelpMan getblockhashes()
             HelpExampleCli("getblockhashes", "1231614698 1231024505")
             + HelpExampleRpc("getblockhashes", "1231614698, 1231024505")
         },
-    [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     unsigned int high = request.params[0].get_int();
     unsigned int low = request.params[1].get_int();
     std::vector<uint256> blockHashes;
 
-    if (LOCK(::cs_main); !GetTimestampIndex(*pblocktree, high, low, blockHashes)) {
+    if (!GetTimestampIndex(high, low, blockHashes)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for block hashes");
     }
 
@@ -846,13 +820,11 @@ static RPCHelpMan getblockhashes()
     }
 
     return result;
-},
-    };
 }
 
-static RPCHelpMan getblockhash()
+static UniValue getblockhash(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getblockhash",
+    RPCHelpMan{"getblockhash",
         "\nReturns hash of block in best-block-chain at height provided.\n",
         {
             {"height", RPCArg::Type::NUM, RPCArg::Optional::NO, "The height index"},
@@ -863,8 +835,8 @@ static RPCHelpMan getblockhash()
             HelpExampleCli("getblockhash", "1000")
     + HelpExampleRpc("getblockhash", "1000")
         },
-    [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
     LOCK(cs_main);
     const CChain& active_chain = chainman.ActiveChain();
@@ -875,13 +847,11 @@ static RPCHelpMan getblockhash()
 
     CBlockIndex* pblockindex = active_chain[nHeight];
     return pblockindex->GetBlockHash().GetHex();
-},
-    };
 }
 
-static RPCHelpMan getblockheader()
+static UniValue getblockheader(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getblockheader",
+    RPCHelpMan{"getblockheader",
         "\nIf verbose is false, returns a string that is serialized, hex-encoded data for blockheader 'hash'.\n"
         "If verbose is true, returns an Object with information about blockheader <hash>.\n",
         {
@@ -916,8 +886,8 @@ static RPCHelpMan getblockheader()
             HelpExampleCli("getblockheader", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"")
     + HelpExampleRpc("getblockheader", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"")
         },
-    [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     uint256 hash(ParseHashV(request.params[0], "hash"));
     const NodeContext& node = EnsureAnyNodeContext(request.context);
 
@@ -948,18 +918,16 @@ static RPCHelpMan getblockheader()
 
     LLMQContext& llmq_ctx = EnsureLLMQContext(node);
     return blockheaderToJSON(tip, pblockindex, *llmq_ctx.clhandler, *llmq_ctx.isman);
-},
-    };
 }
 
-static RPCHelpMan getblockheaders()
+static UniValue getblockheaders(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getblockheaders",
+    RPCHelpMan{"getblockheaders",
         "\nReturns an array of items with information about <count> blockheaders starting from <hash>.\n"
         "\nIf verbose is false, each item is a string that is serialized, hex-encoded data for a single blockheader.\n"
         "If verbose is true, each item is an Object with information about a single blockheader.\n",
         {
-            {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash"},
+            {"hash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash"},
             {"count", RPCArg::Type::NUM, /* default */ strprintf("%s", MAX_HEADERS_RESULTS), ""},
             {"verbose", RPCArg::Type::BOOL, /* default */ "true", "true for a json object, false for the hex-encoded data"},
         },
@@ -994,8 +962,7 @@ static RPCHelpMan getblockheaders()
             HelpExampleCli("getblockheaders", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\" 2000")
     + HelpExampleRpc("getblockheaders", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\" 2000")
         },
-    [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
 
     uint256 hash(ParseHashV(request.params[0], "blockhash"));
 
@@ -1054,8 +1021,6 @@ static RPCHelpMan getblockheaders()
     }
 
     return arrHeaders;
-},
-    };
 }
 
 static CBlock GetBlockChecked(const CBlockIndex* pblockindex)
@@ -1089,13 +1054,13 @@ static CBlockUndo GetUndoChecked(const CBlockIndex* pblockindex)
     return blockUndo;
 }
 
-static RPCHelpMan getmerkleblocks()
+static UniValue getmerkleblocks(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getmerkleblocks",
+    RPCHelpMan{"getmerkleblocks",
         "\nReturns an array of hex-encoded merkleblocks for <count> blocks starting from <hash> which match <filter>.\n",
         {
             {"filter", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded bloom filter"},
-            {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash"},
+            {"hash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash"},
             {"count", RPCArg::Type::NUM, /* default */ strprintf("%s", MAX_HEADERS_RESULTS), ""},
         },
         RPCResult{
@@ -1105,8 +1070,8 @@ static RPCHelpMan getmerkleblocks()
             HelpExampleCli("getmerkleblocks", "\"2303028005802040100040000008008400048141010000f8400420800080025004000004130000000000000001\" \"00000000007e1432d2af52e8463278bf556b55cf5049262f25634557e2e91202\" 2000")
     + HelpExampleRpc("getmerkleblocks", "\"2303028005802040100040000008008400048141010000f8400420800080025004000004130000000000000001\" \"00000000007e1432d2af52e8463278bf556b55cf5049262f25634557e2e91202\" 2000")
         },
-    [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
     LOCK(cs_main);
 
@@ -1160,13 +1125,11 @@ static RPCHelpMan getmerkleblocks()
         arrMerkleBlocks.push_back(strHex);
     }
     return arrMerkleBlocks;
-},
-    };
 }
 
-static RPCHelpMan getblock()
+static UniValue getblock(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getblock",
+    RPCHelpMan{"getblock",
                 "\nIf verbosity is 0, returns a string that is serialized, hex-encoded data for block 'hash'.\n"
                 "If verbosity is 1, returns an Object with information about block <hash>.\n"
                 "If verbosity is 2, returns an Object with information about block <hash> and information about each transaction. \n",
@@ -1216,7 +1179,6 @@ static RPCHelpMan getblock()
                                 {RPCResult::Type::OBJ, "", "",
                                 {
                                     {RPCResult::Type::ELISION, "", "The transactions in the format of the getrawtransaction RPC. Different from verbosity = 1 \"tx\" result"},
-                                    {RPCResult::Type::NUM, "fee", "The transaction fee in " + CURRENCY_UNIT + ", omitted if block undo data is not available"},
                                 }},
                             }},
                         }},
@@ -1225,17 +1187,16 @@ static RPCHelpMan getblock()
                     HelpExampleCli("getblock", "\"00000000000fd08c2fb661d2fcb0d49abb3a91e5f27082ce64feed3b4dede2e2\"")
             + HelpExampleRpc("getblock", "\"00000000000fd08c2fb661d2fcb0d49abb3a91e5f27082ce64feed3b4dede2e2\"")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     uint256 hash(ParseHashV(request.params[0], "blockhash"));
 
     int verbosity = 1;
     if (!request.params[1].isNull()) {
-        if (request.params[1].isBool()) {
-            verbosity = request.params[1].get_bool() ? 1 : 0;
-        } else {
+        if(request.params[1].isNum())
             verbosity = request.params[1].get_int();
-        }
+        else
+            verbosity = request.params[1].get_bool() ? 1 : 0;
     }
 
     const NodeContext& node = EnsureAnyNodeContext(request.context);
@@ -1266,13 +1227,11 @@ static RPCHelpMan getblock()
 
     LLMQContext& llmq_ctx = EnsureLLMQContext(node);
     return blockToJSON(block, tip, pblockindex, *llmq_ctx.clhandler, *llmq_ctx.isman, verbosity >= 2);
-},
-    };
 }
 
-static RPCHelpMan pruneblockchain()
+static UniValue pruneblockchain(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"pruneblockchain", "",
+    RPCHelpMan{"pruneblockchain", "",
         {
             {"height", RPCArg::Type::NUM, RPCArg::Optional::NO, "The block height to prune up to. May be set to a discrete height, or to a " + UNIX_EPOCH_TIME + "\n"
     "                  to prune blocks whose block time is at least 2 hours older than the provided timestamp."},
@@ -1283,8 +1242,8 @@ static RPCHelpMan pruneblockchain()
             HelpExampleCli("pruneblockchain", "1000")
     + HelpExampleRpc("pruneblockchain", "1000")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     if (!fPruneMode)
         throw JSONRPCError(RPC_MISC_ERROR, "Cannot prune blocks because node is not in prune mode.");
 
@@ -1326,8 +1285,6 @@ static RPCHelpMan pruneblockchain()
         block = block->pprev;
     }
     return uint64_t(block->nHeight);
-},
-    };
 }
 
 CoinStatsHashType ParseHashType(const std::string& hash_type_input)
@@ -1343,9 +1300,9 @@ CoinStatsHashType ParseHashType(const std::string& hash_type_input)
     }
 }
 
-static RPCHelpMan gettxoutsetinfo()
+static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"gettxoutsetinfo",
+    RPCHelpMan{"gettxoutsetinfo",
         "\nReturns statistics about the unspent transaction output set.\n"
         "Note this call may take some time if you are not using coinstatsindex.\n",
         {
@@ -1356,15 +1313,15 @@ static RPCHelpMan gettxoutsetinfo()
         RPCResult{
             RPCResult::Type::OBJ, "", "",
             {
-                {RPCResult::Type::NUM, "height", "The block height (index) of the returned statistics"},
-                {RPCResult::Type::STR_HEX, "bestblock", "The hash of the block at which these statistics are calculated"},
+                {RPCResult::Type::NUM, "height", "The current block height (index)"},
+                {RPCResult::Type::STR_HEX, "bestblock", "The hash of the block at the tip of the chain"},
                 {RPCResult::Type::NUM, "txouts", "The number of unspent transaction outputs"},
                 {RPCResult::Type::NUM, "bogosize", "Database-independent, meaningless metric indicating the UTXO set size"},
                 {RPCResult::Type::STR_HEX, "hash_serialized_2", /* optional */ true, "The serialized hash (only present if 'hash_serialized_2' hash_type is chosen)"},
                 {RPCResult::Type::STR_HEX, "muhash", /* optional */ true, "The serialized hash (only present if 'muhash' hash_type is chosen)"},
                 {RPCResult::Type::NUM, "transactions", "The number of transactions with unspent outputs (not available when coinstatsindex is used)"},
                 {RPCResult::Type::NUM, "disk_size", "The estimated size of the chainstate on disk (not available when coinstatsindex is used)"},
-                {RPCResult::Type::STR_AMOUNT, "total_amount", "The total amount of coins in the UTXO set"},
+                {RPCResult::Type::STR_AMOUNT, "total_amount", "The total amount"},
                 {RPCResult::Type::STR_AMOUNT, "total_unspendable_amount", "The total amount of coins permanently excluded from the UTXO set (only available if coinstatsindex is used)"},
                 {RPCResult::Type::OBJ, "block_info", "Info on amounts in the block at this block height (only available if coinstatsindex is used)",
                 {
@@ -1391,8 +1348,8 @@ static RPCHelpMan gettxoutsetinfo()
                 HelpExampleRpc("gettxoutsetinfo", R"("none", 1000)") +
                 HelpExampleRpc("gettxoutsetinfo", R"("none", "00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09")")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     UniValue ret(UniValue::VOBJ);
 
     CBlockIndex* pindex{nullptr};
@@ -1482,13 +1439,11 @@ static RPCHelpMan gettxoutsetinfo()
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
     }
     return ret;
-},
-    };
 }
 
-static RPCHelpMan gettxout()
+static UniValue gettxout(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"gettxout",
+    RPCHelpMan{"gettxout",
         "\nReturns details about an unspent transaction output.\n",
         {
             {"txid", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction id"},
@@ -1503,13 +1458,12 @@ static RPCHelpMan gettxout()
                 {RPCResult::Type::STR_AMOUNT, "value", "The transaction value in " + CURRENCY_UNIT},
                 {RPCResult::Type::OBJ, "scriptPubKey", "",
                     {
-                        {RPCResult::Type::STR, "asm", ""},
+                        {RPCResult::Type::STR_HEX, "asm", ""},
                         {RPCResult::Type::STR_HEX, "hex", ""},
-                        {RPCResult::Type::NUM, "reqSigs", /* optional */ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed) Number of required signatures"},
+                        {RPCResult::Type::NUM, "reqSigs", "Number of required signatures"},
                         {RPCResult::Type::STR_HEX, "type", "The type, eg pubkeyhash"},
-                        {RPCResult::Type::STR, "address", /* optional */ true, "Dash address (only if a well-defined address exists)"},
-                        {RPCResult::Type::ARR, "addresses", /* optional */ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed) Array of Dash addresses",
-                            {{RPCResult::Type::STR, "address", "Dash address"}}},
+                        {RPCResult::Type::ARR, "addresses", "Array of Ogva addresses",
+                            {{RPCResult::Type::STR, "address", "Ogva address"}}},
                     }},
                 {RPCResult::Type::BOOL, "coinbase", "Coinbase or not"},
             }},
@@ -1521,8 +1475,7 @@ static RPCHelpMan gettxout()
     "\nAs a JSON-RPC call\n"
     + HelpExampleRpc("gettxout", "\"txid\", 1")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
 
     const NodeContext& node = EnsureAnyNodeContext(request.context);
 
@@ -1570,13 +1523,11 @@ static RPCHelpMan gettxout()
     ret.pushKV("coinbase", (bool)coin.fCoinBase);
 
     return ret;
-},
-    };
 }
 
-static RPCHelpMan verifychain()
+static UniValue verifychain(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"verifychain",
+    RPCHelpMan{"verifychain",
         "\nVerifies blockchain database.\n",
         {
             {"checklevel", RPCArg::Type::NUM, /* default */ strprintf("%d, range=0-4", DEFAULT_CHECKLEVEL),
@@ -1589,13 +1540,12 @@ static RPCHelpMan verifychain()
             HelpExampleCli("verifychain", "")
     + HelpExampleRpc("verifychain", "")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     const int check_level(request.params[0].isNull() ? DEFAULT_CHECKLEVEL : request.params[0].get_int());
     const int check_depth{request.params[1].isNull() ? DEFAULT_CHECKBLOCKS : request.params[1].get_int()};
 
     const NodeContext& node = EnsureAnyNodeContext(request.context);
-    CHECK_NONFATAL(node.evodb);
 
     ChainstateManager& chainman = EnsureChainman(node);
     LOCK(cs_main);
@@ -1603,8 +1553,6 @@ static RPCHelpMan verifychain()
     CChainState& active_chainstate = chainman.ActiveChainstate();
     return CVerifyDB().VerifyDB(
         active_chainstate, Params(), active_chainstate.CoinsTip(), *node.evodb, check_level, check_depth);
-},
-    };
 }
 
 static void SoftForkDescPushBack(const CBlockIndex* active_chain_tip, UniValue& softforks, const Consensus::Params& params, Consensus::BuriedDeployment dep)
@@ -1628,8 +1576,10 @@ static void SoftForkDescPushBack(const CBlockIndex* active_chain_tip, UniValue& 
 static void SoftForkDescPushBack(const CBlockIndex* active_chain_tip, const std::unordered_map<uint8_t, int>& signals, UniValue& softforks, const Consensus::Params& consensusParams, Consensus::DeploymentPos id)
 {
     // For BIP9 deployments.
-    // Deployments that are never active are hidden.
-    if (consensusParams.vDeployments[id].nStartTime == Consensus::BIP9Deployment::NEVER_ACTIVE) return;
+    // Deployments (e.g. testdummy) with timeout value before Jan 1, 2009 are hidden.
+    // A timeout value of 0 guarantees a softfork will never be activated.
+    // This is used when merging logic to implement a proposed softfork without a specified deployment schedule.
+    if (consensusParams.vDeployments[id].nTimeout <= 1230768000) return;
 
     UniValue bip9(UniValue::VOBJ);
     const ThresholdState thresholdState = g_versionbitscache.State(active_chain_tip, consensusParams, id);
@@ -1640,8 +1590,8 @@ static void SoftForkDescPushBack(const CBlockIndex* active_chain_tip, const std:
     case ThresholdState::ACTIVE: bip9.pushKV("status", "active"); break;
     case ThresholdState::FAILED: bip9.pushKV("status", "failed"); break;
     }
-    const bool has_signal = (ThresholdState::STARTED == thresholdState || ThresholdState::LOCKED_IN == thresholdState);
-    if (has_signal) {
+    if (ThresholdState::STARTED == thresholdState)
+    {
         bip9.pushKV("bit", consensusParams.vDeployments[id].bit);
     }
     bip9.pushKV("start_time", consensusParams.vDeployments[id].nStartTime);
@@ -1652,22 +1602,20 @@ static void SoftForkDescPushBack(const CBlockIndex* active_chain_tip, const std:
     }
     int64_t since_height = g_versionbitscache.StateSinceHeight(active_chain_tip, consensusParams, id);
     bip9.pushKV("since", since_height);
-    if (has_signal) {
+    if (ThresholdState::STARTED == thresholdState)
+    {
         UniValue statsUV(UniValue::VOBJ);
         BIP9Stats statsStruct = g_versionbitscache.Statistics(active_chain_tip, consensusParams, id);
         statsUV.pushKV("period", statsStruct.period);
+        statsUV.pushKV("threshold", statsStruct.threshold);
         statsUV.pushKV("elapsed", statsStruct.elapsed);
         statsUV.pushKV("count", statsStruct.count);
-        if (ThresholdState::LOCKED_IN != thresholdState) {
-            statsUV.pushKV("threshold", statsStruct.threshold);
-            statsUV.pushKV("possible", statsStruct.possible);
-        }
+        statsUV.pushKV("possible", statsStruct.possible);
         bip9.pushKV("statistics", statsUV);
     }
-    if (ThresholdState::LOCKED_IN == thresholdState) {
+    else if (ThresholdState::LOCKED_IN == thresholdState) {
         bip9.pushKV("activation_height", since_height + static_cast<int>(consensusParams.vDeployments[id].nWindowSize));
     }
-    bip9.pushKV("min_activation_height", consensusParams.vDeployments[id].min_activation_height);
 
     UniValue rv(UniValue::VOBJ);
     rv.pushKV("type", "bip9");
@@ -1680,9 +1628,9 @@ static void SoftForkDescPushBack(const CBlockIndex* active_chain_tip, const std:
     softforks.pushKV(DeploymentName(id), rv);
 }
 
-RPCHelpMan getblockchaininfo()
+UniValue getblockchaininfo(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getblockchaininfo",
+    RPCHelpMan{"getblockchaininfo",
         "Returns an object containing various state info regarding blockchain processing.\n",
         {},
         RPCResult{
@@ -1710,21 +1658,20 @@ RPCHelpMan getblockchaininfo()
                     {RPCResult::Type::OBJ, "bip9", "status of bip9 softforks (only for \"bip9\" type)",
                     {
                         {RPCResult::Type::STR, "status", "one of \"defined\", \"started\", \"locked_in\", \"active\", \"failed\""},
-                        {RPCResult::Type::NUM, "bit", "the bit (0-28) in the block version field used to signal this softfork (only for \"started\" and \"locked_in\" status)"},
+                        {RPCResult::Type::NUM, "bit", "the bit (0-28) in the block version field used to signal this softfork (only for \"started\" status)"},
                         {RPCResult::Type::NUM_TIME, "start_time", "the minimum median time past of a block at which the bit gains its meaning"},
                         {RPCResult::Type::NUM_TIME, "timeout", "the median time past of a block at which the deployment is considered failed if not yet locked in"},
                         {RPCResult::Type::BOOL, "ehf", "returns true for EHF activated forks"},
                         {RPCResult::Type::NUM, "ehf_height", /* optional */ true, "the minimum height when miner's signals for the deployment matter. Below this height miner signaling cannot trigger hard fork lock-in. Not specified for non-EHF forks"},
                         {RPCResult::Type::NUM, "since", "height of the first block to which the status applies"},
                         {RPCResult::Type::NUM, "activation_height", "expected activation height for this softfork (only for \"locked_in\" status)"},
-                        {RPCResult::Type::NUM, "min_activation_height", "minimum height of blocks for which the rules may be enforced"},
-                        {RPCResult::Type::OBJ, "statistics", "numeric statistics about signalling for a softfork (only for \"started\" and \"locked_in\" status)",
+                        {RPCResult::Type::OBJ, "statistics", "numeric statistics about BIP9 signalling for a softfork",
                         {
-                            {RPCResult::Type::NUM, "period", "the length in blocks of the signalling period"},
-                            {RPCResult::Type::NUM, "threshold", "the number of blocks with the version bit set required to activate the feature (only for \"started\" status)"},
+                            {RPCResult::Type::NUM, "period", "the length in blocks of the BIP9 signalling period"},
+                            {RPCResult::Type::NUM, "threshold", "the number of blocks with the version bit set required to activate the feature"},
                             {RPCResult::Type::NUM, "elapsed", "the number of blocks elapsed since the beginning of the current period"},
                             {RPCResult::Type::NUM, "count", "the number of blocks with the version bit set in the current period"},
-                            {RPCResult::Type::BOOL, "possible", "returns false if there are not enough blocks left in this period to pass activation threshold (only for \"started\" status)"},
+                            {RPCResult::Type::BOOL, "possible", "returns false if there are not enough blocks left in this period to pass activation threshold"},
                         }},
                     }},
                     {RPCResult::Type::NUM, "height", "height of the first block which the rules are or will be enforced (only for \"buried\" type, or \"bip9\" type with \"active\" status)"},
@@ -1736,24 +1683,18 @@ RPCHelpMan getblockchaininfo()
             HelpExampleCli("getblockchaininfo", "")
     + HelpExampleRpc("getblockchaininfo", "")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+    LOCK(cs_main);
+    CChainState& active_chainstate = chainman.ActiveChainstate();
 
     std::string strChainName = gArgs.IsArgSet("-devnet") ? gArgs.GetDevNetName() : Params().NetworkIDString();
 
-    const NodeContext& node = EnsureAnyNodeContext(request.context);
-    ChainstateManager& chainman = EnsureChainman(node);
-
-    LOCK(cs_main);
-    CChainState& active_chainstate = chainman.ActiveChainstate();
     const CBlockIndex* tip = active_chainstate.m_chain.Tip();
-
     CHECK_NONFATAL(tip);
     const int height = tip->nHeight;
-
-    CHECK_NONFATAL(node.mnhf_manager);
-    const auto ehfSignals = node.mnhf_manager->GetSignalsStage(tip);
-
+    const auto ehfSignals = active_chainstate.GetMNHFSignalsStage(tip);
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("chain",                 strChainName);
     obj.pushKV("blocks",                height);
@@ -1807,8 +1748,6 @@ RPCHelpMan getblockchaininfo()
 
     obj.pushKV("warnings", GetWarnings(false).original);
     return obj;
-},
-    };
 }
 
 /** Comparison function for sorting the getchaintips heads.  */
@@ -1826,9 +1765,9 @@ struct CompareBlocksByHeight
     }
 };
 
-static RPCHelpMan getchaintips()
+static UniValue getchaintips(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getchaintips",
+    RPCHelpMan{"getchaintips",
         "Return information about all known tips in the block tree,"
         " including the main chain as well as orphaned branches.\n",
         {
@@ -1858,8 +1797,7 @@ static RPCHelpMan getchaintips()
             HelpExampleCli("getchaintips", "")
     + HelpExampleRpc("getchaintips", "")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
 
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
     LOCK(cs_main);
@@ -1948,8 +1886,6 @@ static RPCHelpMan getchaintips()
     }
 
     return res;
-},
-    };
 }
 
 UniValue MempoolInfoToJSON(const CTxMemPool& pool, llmq::CInstantSendManager& isman)
@@ -1971,9 +1907,9 @@ UniValue MempoolInfoToJSON(const CTxMemPool& pool, llmq::CInstantSendManager& is
     return ret;
 }
 
-static RPCHelpMan getmempoolinfo()
+static UniValue getmempoolinfo(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getmempoolinfo",
+    RPCHelpMan{"getmempoolinfo",
         "\nReturns details on the active state of the TX memory pool.\n",
         {},
         RPCResult{
@@ -1994,19 +1930,17 @@ static RPCHelpMan getmempoolinfo()
             HelpExampleCli("getmempoolinfo", "")
     + HelpExampleRpc("getmempoolinfo", "")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     const NodeContext& node = EnsureAnyNodeContext(request.context);
     const CTxMemPool& mempool = EnsureMemPool(node);
     LLMQContext& llmq_ctx = EnsureLLMQContext(node);
     return MempoolInfoToJSON(mempool, *llmq_ctx.isman);
-},
-    };
 }
 
-static RPCHelpMan preciousblock()
+static UniValue preciousblock(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"preciousblock",
+    RPCHelpMan{"preciousblock",
         "\nTreats a block as if it were received before others with the same work.\n"
         "\nA later preciousblock call can override the effect of an earlier one.\n"
         "\nThe effects of preciousblock are not retained across restarts.\n",
@@ -2018,8 +1952,8 @@ static RPCHelpMan preciousblock()
             HelpExampleCli("preciousblock", "\"blockhash\"")
     + HelpExampleRpc("preciousblock", "\"blockhash\"")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     uint256 hash(ParseHashV(request.params[0], "blockhash"));
     CBlockIndex* pblockindex;
 
@@ -2040,13 +1974,11 @@ static RPCHelpMan preciousblock()
     }
 
     return NullUniValue;
-},
-    };
 }
 
-static RPCHelpMan invalidateblock()
+static UniValue invalidateblock(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"invalidateblock",
+    RPCHelpMan{"invalidateblock",
         "\nPermanently marks a block as invalid, as if it violated a consensus rule.\n",
         {
             {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "the hash of the block to mark as invalid"},
@@ -2056,8 +1988,8 @@ static RPCHelpMan invalidateblock()
             HelpExampleCli("invalidateblock", "\"blockhash\"")
     + HelpExampleRpc("invalidateblock", "\"blockhash\"")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     uint256 hash(ParseHashV(request.params[0], "blockhash"));
     BlockValidationState state;
 
@@ -2083,13 +2015,11 @@ static RPCHelpMan invalidateblock()
     }
 
     return NullUniValue;
-},
-    };
 }
 
-static RPCHelpMan reconsiderblock()
+static UniValue reconsiderblock(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"reconsiderblock",
+    RPCHelpMan{"reconsiderblock",
         "\nRemoves invalidity status of a block, its ancestors and its descendants, reconsider them for activation.\n"
         "This can be used to undo the effects of invalidateblock.\n",
         {
@@ -2100,8 +2030,8 @@ static RPCHelpMan reconsiderblock()
             HelpExampleCli("reconsiderblock", "\"blockhash\"")
     + HelpExampleRpc("reconsiderblock", "\"blockhash\"")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
     CChainState& active_chainstate = chainman.ActiveChainstate();
 
@@ -2125,13 +2055,11 @@ static RPCHelpMan reconsiderblock()
     }
 
     return NullUniValue;
-},
-    };
 }
 
-static RPCHelpMan getchaintxstats()
+static UniValue getchaintxstats(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getchaintxstats",
+            RPCHelpMan{"getchaintxstats",
                 "\nCompute statistics about the total number and rate of transactions in the chain.\n",
                 {
                     {"nblocks", RPCArg::Type::NUM, /* default */ "one month", "Size of the window in number of blocks"},
@@ -2153,8 +2081,8 @@ static RPCHelpMan getchaintxstats()
                     HelpExampleCli("getchaintxstats", "")
             + HelpExampleRpc("getchaintxstats", "2016")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+            }.Check(request);
+
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
 
     CChain& active_chain = chainman.ActiveChain();
@@ -2207,8 +2135,6 @@ static RPCHelpMan getchaintxstats()
     }
 
     return ret;
-},
-    };
 }
 
 template<typename T>
@@ -2256,16 +2182,6 @@ void CalculatePercentilesBySize(CAmount result[NUM_GETBLOCKSTATS_PERCENTILES], s
     }
 }
 
-void ScriptPubKeyToUniv(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex)
-{
-    ScriptPubKeyToUniv(scriptPubKey, out, fIncludeHex, IsDeprecatedRPCEnabled("addresses"));
-}
-
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, const CTxUndo* txundo, const CSpentIndexTxInfo* ptxSpentInfo)
-{
-    TxToUniv(tx, hashBlock, IsDeprecatedRPCEnabled("addresses"), entry, include_hex, txundo, ptxSpentInfo);
-}
-
 template<typename T>
 static inline bool SetHasKeys(const std::set<T>& set) {return false;}
 template<typename T, typename Tk, typename... Args>
@@ -2277,10 +2193,10 @@ static inline bool SetHasKeys(const std::set<T>& set, const Tk& key, const Args&
 // outpoint (needed for the utxo index) + nHeight + fCoinBase
 static constexpr size_t PER_UTXO_OVERHEAD = sizeof(COutPoint) + sizeof(uint32_t) + sizeof(bool);
 
-static RPCHelpMan getblockstats()
+static UniValue getblockstats(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getblockstats",
-                "\nCompute per block statistics for a given window. All amounts are in duffs.\n"
+    RPCHelpMan{"getblockstats",
+                "\nCompute per block statistics for a given window. All amounts are in muffs.\n"
                 "It won't work for some heights with pruning.\n",
                 {
                     {"hash_or_height", RPCArg::Type::NUM, RPCArg::Optional::NO, "The block hash or height of the target block", "", {"", "string or numeric"}},
@@ -2295,10 +2211,10 @@ static RPCHelpMan getblockstats()
             RPCResult::Type::OBJ, "", "",
             {
                 {RPCResult::Type::NUM, "avgfee", "Average fee in the block"},
-                {RPCResult::Type::NUM, "avgfeerate", "Average feerate (in duffs per virtual byte)"},
+                {RPCResult::Type::NUM, "avgfeerate", "Average feerate (in muffs per virtual byte)"},
                 {RPCResult::Type::NUM, "avgtxsize", "Average transaction size"},
                 {RPCResult::Type::STR_HEX, "blockhash", "The block hash (to check for potential reorgs)"},
-                {RPCResult::Type::ARR_FIXED, "feerate_percentiles", "Feerates at the 10th, 25th, 50th, 75th, and 90th percentile weight unit (in duffs per byte)",
+                {RPCResult::Type::ARR_FIXED, "feerate_percentiles", "Feerates at the 10th, 25th, 50th, 75th, and 90th percentile weight unit (in muffs per byte)",
                 {
                     {RPCResult::Type::NUM, "10th_percentile_feerate", "The 10th percentile feerate"},
                     {RPCResult::Type::NUM, "25th_percentile_feerate", "The 25th percentile feerate"},
@@ -2309,13 +2225,13 @@ static RPCHelpMan getblockstats()
                 {RPCResult::Type::NUM, "height", "The height of the block"},
                 {RPCResult::Type::NUM, "ins", "The number of inputs (excluding coinbase)"},
                 {RPCResult::Type::NUM, "maxfee", "Maximum fee in the block"},
-                {RPCResult::Type::NUM, "maxfeerate", "Maximum feerate (in duffs per virtual byte)"},
+                {RPCResult::Type::NUM, "maxfeerate", "Maximum feerate (in muffs per virtual byte)"},
                 {RPCResult::Type::NUM, "maxtxsize", "Maximum transaction size"},
                 {RPCResult::Type::NUM, "medianfee", "Truncated median fee in the block"},
                 {RPCResult::Type::NUM, "mediantime", "The block median time past"},
                 {RPCResult::Type::NUM, "mediantxsize", "Truncated median transaction size"},
                 {RPCResult::Type::NUM, "minfee", "Minimum fee in the block"},
-                {RPCResult::Type::NUM, "minfeerate", "Minimum feerate (in duffs per virtual byte)"},
+                {RPCResult::Type::NUM, "minfeerate", "Minimum feerate (in muffs per virtual byte)"},
                 {RPCResult::Type::NUM, "mintxsize", "Minimum transaction size"},
                 {RPCResult::Type::NUM, "outs", "The number of outputs"},
                 {RPCResult::Type::NUM, "subsidy", "The block subsidy"},
@@ -2333,8 +2249,8 @@ static RPCHelpMan getblockstats()
                     HelpExampleRpc("getblockstats", R"("00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09", ["minfeerate","avgfeerate"])") +
                     HelpExampleRpc("getblockstats", R"(1000, ["minfeerate","avgfeerate"])")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     if (g_txindex) {
         g_txindex->BlockUntilSyncedToCurrentChain();
     }
@@ -2424,13 +2340,6 @@ static RPCHelpMan getblockstats()
             }
 
             CAmount txfee = tx_total_in - tx_total_out;
-
-            if (tx->IsPlatformTransfer()) {
-                auto payload = GetTxPayload<CAssetUnlockPayload>(*tx);
-                CHECK_NONFATAL(payload);
-                txfee = payload->getFee();
-            }
-
             CHECK_NONFATAL(MoneyRange(txfee));
             if (do_medianfee) {
                 fee_array.push_back(txfee);
@@ -2496,13 +2405,11 @@ static RPCHelpMan getblockstats()
         ret.pushKV(stat, value);
     }
     return ret;
-},
-    };
 }
 
-static RPCHelpMan getspecialtxes()
+static UniValue getspecialtxes(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getspecialtxes",
+    RPCHelpMan{"getspecialtxes",
         "Returns an array of special transactions found in the specified block\n"
         "\nIf verbosity is 0, returns tx hash for each transaction.\n"
         "If verbosity is 1, returns hex-encoded data for each transaction.\n"
@@ -2529,8 +2436,8 @@ static RPCHelpMan getspecialtxes()
             HelpExampleCli("getspecialtxes", "\"00000000000fd08c2fb661d2fcb0d49abb3a91e5f27082ce64feed3b4dede2e2\"")
     + HelpExampleRpc("getspecialtxes", "\"00000000000fd08c2fb661d2fcb0d49abb3a91e5f27082ce64feed3b4dede2e2\"")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     const NodeContext& node = EnsureAnyNodeContext(request.context);
 
     ChainstateManager& chainman = EnsureChainman(node);
@@ -2580,9 +2487,9 @@ static RPCHelpMan getspecialtxes()
 
     for(const auto& tx : block.vtx)
     {
-        if (!tx->HasExtraPayloadField()                   // ensure it's in fact a special tx
+        if (tx->nVersion != 3 || tx->nType == TRANSACTION_NORMAL // ensure it's in fact a special tx
             || (nTxType != -1 && tx->nType != nTxType)) { // ensure special tx type matches filter, if given
-            continue;
+                continue;
         }
 
         nTxNum++;
@@ -2603,14 +2510,13 @@ static RPCHelpMan getspecialtxes()
             default : throw JSONRPCError(RPC_INTERNAL_ERROR, "Unsupported verbosity");
         }
     }
+
     return result;
-},
-    };
 }
 
-static RPCHelpMan savemempool()
+static UniValue savemempool(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"savemempool",
+    RPCHelpMan{"savemempool",
         "\nDumps the mempool to disk. It will fail until the previous dump is fully loaded.\n",
         {},
         RPCResult{RPCResult::Type::NONE, "", ""},
@@ -2618,8 +2524,8 @@ static RPCHelpMan savemempool()
             HelpExampleCli("savemempool", "")
     + HelpExampleRpc("savemempool", "")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     const CTxMemPool& mempool = EnsureAnyMemPool(request.context);
 
     if (!mempool.IsLoaded()) {
@@ -2631,8 +2537,6 @@ static RPCHelpMan savemempool()
     }
 
     return NullUniValue;
-},
-    };
 }
 
 namespace {
@@ -2696,9 +2600,10 @@ public:
     }
 };
 
-static RPCHelpMan scantxoutset()
+UniValue scantxoutset(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"scantxoutset",
+    RPCHelpMan{"scantxoutset",
+        "\nEXPERIMENTAL warning: this call may be removed or changed in future releases.\n"
         "\nScans the unspent transaction output set for entries that match certain output descriptors.\n"
         "Examples of output descriptors are:\n"
         "    addr(<address>)                      Outputs whose scriptPubKey corresponds to the specified address (does not include P2PK)\n"
@@ -2751,8 +2656,8 @@ static RPCHelpMan scantxoutset()
                 {RPCResult::Type::STR_AMOUNT, "total_amount", "The total amount of all found unspent outputs in " + CURRENCY_UNIT},
             }},
         RPCExamples{""},
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR});
 
     UniValue result(UniValue::VOBJ);
@@ -2846,13 +2751,11 @@ static RPCHelpMan scantxoutset()
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid command");
     }
     return result;
-},
-    };
 }
 
-static RPCHelpMan getblockfilter()
+static UniValue getblockfilter(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getblockfilter",
+    RPCHelpMan{"getblockfilter",
         "\nRetrieve a BIP 157 content filter for a particular block.\n",
         {
             {"blockhash", RPCArg::Type::STR, RPCArg::Optional::NO, "The hash of the block"},
@@ -2868,8 +2771,8 @@ static RPCHelpMan getblockfilter()
             HelpExampleCli("getblockfilter", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\" \"basic\"")+
             HelpExampleRpc("getblockfilter", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\", \"basic\"")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     uint256 block_hash(ParseHashV(request.params[0], "blockhash"));
     std::string filtertype_name = "basic";
     if (!request.params[1].isNull()) {
@@ -2925,8 +2828,6 @@ static RPCHelpMan getblockfilter()
     ret.pushKV("filter", HexStr(filter.GetEncodedFilter()));
     ret.pushKV("header", filter_header.GetHex());
     return ret;
-},
-    };
 }
 
 /**
@@ -2934,9 +2835,9 @@ static RPCHelpMan getblockfilter()
  *
  * @see SnapshotMetadata
  */
-static RPCHelpMan dumptxoutset()
+UniValue dumptxoutset(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{
+    RPCHelpMan{
         "dumptxoutset",
         "Write the serialized UTXO set to disk.",
         {
@@ -2953,9 +2854,9 @@ static RPCHelpMan dumptxoutset()
         },
         RPCExamples{
             HelpExampleCli("dumptxoutset", "utxo.dat")
-        },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+        }
+    }.Check(request);
+
     const fs::path path = fsbridge::AbsPathJoin(GetDataDir(), request.params[0].get_str());
     // Write to a temporary path and then move into `path` on completion
     // to avoid confusion due to an interruption.
@@ -2971,14 +2872,11 @@ static RPCHelpMan dumptxoutset()
     FILE* file{fsbridge::fopen(temppath, "wb")};
     CAutoFile afile{file, SER_DISK, CLIENT_VERSION};
     NodeContext& node = EnsureAnyNodeContext(request.context);
-    const ChainstateManager& chainman = EnsureChainman(node);
-    UniValue result = CreateUTXOSnapshot(node, chainman.ActiveChainstate(), afile);
+    UniValue result = CreateUTXOSnapshot(node, node.chainman->ActiveChainstate(), afile);
     fs::rename(temppath, path);
 
     result.pushKV("path", path.string());
     return result;
-},
-    };
 }
 
 UniValue CreateUTXOSnapshot(NodeContext& node, CChainState& chainstate, CAutoFile& afile)
@@ -3055,7 +2953,6 @@ static const CRPCCommand commands[] =
     { "blockchain",         "getbestchainlock",       &getbestchainlock,       {} },
     { "blockchain",         "getblockcount",          &getblockcount,          {} },
     { "blockchain",         "getblock",               &getblock,               {"blockhash","verbosity|verbose"} },
-    { "blockchain",         "getblockfrompeer",       &getblockfrompeer,       {"block_hash", "peer_id"}},
     { "blockchain",         "getblockhashes",         &getblockhashes,         {"high","low"} },
     { "blockchain",         "getblockhash",           &getblockhash,           {"height"} },
     { "blockchain",         "getblockheader",         &getblockheader,         {"blockhash","verbose"} },
@@ -3089,7 +2986,8 @@ static const CRPCCommand commands[] =
     { "hidden",             "dumptxoutset",           &dumptxoutset,           {"path"} },
 };
 // clang-format on
-    for (const auto& c : commands) {
-        t.appendCommand(c.name, &c);
+
+    for (const auto& command : commands) {
+        t.appendCommand(command.name, &command);
     }
 }

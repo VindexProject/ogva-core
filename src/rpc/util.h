@@ -15,7 +15,8 @@
 #include <script/sign.h>
 #include <script/signingprovider.h>
 #include <script/standard.h>
-#include <univalue.h>
+// #include <univalue.h>
+#include <univalue/include/univalue.h>
 #include <util/check.h>
 #include <util/strencodings.h>
 
@@ -30,7 +31,7 @@
 extern const std::string UNIX_EPOCH_TIME;
 
 /**
- * Example Dash addresses for the RPCExamples help documentation. They are intentionally
+ * Example Ogva addresses for the RPCExamples help documentation. They are intentionally
  * invalid to prevent accidental transactions by users.
  */
 extern const std::string EXAMPLE_ADDRESS[2];
@@ -74,23 +75,19 @@ void RPCTypeCheckObj(const UniValue& o,
  * Utilities: convert hex-encoded Values
  * (throws error if not hex).
  */
-uint256 ParseHashV(const UniValue& v, std::string strName);
-uint256 ParseHashO(const UniValue& o, std::string strKey);
-std::vector<unsigned char> ParseHexV(const UniValue& v, std::string strName);
-std::vector<unsigned char> ParseHexO(const UniValue& o, std::string strKey);
+extern uint256 ParseHashV(const UniValue& v, std::string strName);
+extern uint256 ParseHashO(const UniValue& o, std::string strKey);
+extern std::vector<unsigned char> ParseHexV(const UniValue& v, std::string strName);
+extern std::vector<unsigned char> ParseHexO(const UniValue& o, std::string strKey);
 
-int32_t ParseInt32V(const UniValue& v, const std::string &strName);
-int64_t ParseInt64V(const UniValue& v, const std::string &strName);
-double ParseDoubleV(const UniValue& v, const std::string &strName);
-bool ParseBoolV(const UniValue& v, const std::string &strName);
+extern int32_t ParseInt32V(const UniValue& v, const std::string &strName);
+extern int64_t ParseInt64V(const UniValue& v, const std::string &strName);
+extern double ParseDoubleV(const UniValue& v, const std::string &strName);
+extern bool ParseBoolV(const UniValue& v, const std::string &strName);
 
-CAmount AmountFromValue(const UniValue& value);
-
-using RPCArgList = std::vector<std::pair<std::string, UniValue>>;
-std::string HelpExampleCli(const std::string& methodname, const std::string& args);
-std::string HelpExampleCliNamed(const std::string& methodname, const RPCArgList& args);
-std::string HelpExampleRpc(const std::string& methodname, const std::string& args);
-std::string HelpExampleRpcNamed(const std::string& methodname, const RPCArgList& args);
+extern CAmount AmountFromValue(const UniValue& value);
+extern std::string HelpExampleCli(const std::string& methodname, const std::string& args);
+extern std::string HelpExampleRpc(const std::string& methodname, const std::string& args);
 
 CPubKey HexToPubKey(const std::string& hex_in);
 CPubKey AddrToPubKey(const FillableSigningProvider& keystore, const std::string& addr_in);
@@ -358,7 +355,6 @@ public:
         }
     }
 
-    // TODO: drop it, that's dash specific workaround
     [[ noreturn ]] inline void Throw() const {
         throw std::runtime_error(ToString());
     }

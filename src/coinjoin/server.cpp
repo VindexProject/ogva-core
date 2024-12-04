@@ -12,7 +12,6 @@
 #include <masternode/sync.h>
 #include <net.h>
 #include <netmessagemaker.h>
-#include <net_processing.h>
 #include <script/interpreter.h>
 #include <shutdown.h>
 #include <streams.h>
@@ -27,7 +26,7 @@
 
 PeerMsgRet CCoinJoinServer::ProcessMessage(CNode& peer, std::string_view msg_type, CDataStream& vRecv)
 {
-    if (!m_mn_activeman) return {};
+    if (!fMasternodeMode) return {};
     if (!m_mn_sync.IsBlockchainSynced()) return {};
 
     if (msg_type == NetMsgType::DSACCEPT) {
@@ -44,9 +43,6 @@ PeerMsgRet CCoinJoinServer::ProcessMessage(CNode& peer, std::string_view msg_typ
 
 void CCoinJoinServer::ProcessDSACCEPT(CNode& peer, CDataStream& vRecv)
 {
-    assert(m_mn_activeman);
-    assert(m_mn_metaman.IsValid());
-
     if (IsSessionReady()) {
         // too many users in this session already, reject new ones
         LogPrint(BCLog::COINJOIN, "DSACCEPT -- queue is already full!\n");
@@ -59,8 +55,8 @@ void CCoinJoinServer::ProcessDSACCEPT(CNode& peer, CDataStream& vRecv)
 
     LogPrint(BCLog::COINJOIN, "DSACCEPT -- nDenom %d (%s)  txCollateral %s", dsa.nDenom, CoinJoin::DenominationToString(dsa.nDenom), dsa.txCollateral.ToString()); /* Continued */
 
-    auto mnList = m_dmnman.GetListAtChainTip();
-    auto dmn = mnList.GetValidMNByCollateral(m_mn_activeman->GetOutPoint());
+    auto mnList = deterministicMNManager->GetListAtChainTip();
+    auto dmn = WITH_LOCK(activeMasternodeInfoCs, return mnList.GetValidMNByCollateral(activeMasternodeInfo.outpoint));
     if (!dmn) {
         PushStatus(peer, STATUS_REJECTED, ERR_MN_LIST);
         return;
@@ -71,7 +67,7 @@ void CCoinJoinServer::ProcessDSACCEPT(CNode& peer, CDataStream& vRecv)
             TRY_LOCK(cs_vecqueue, lockRecv);
             if (!lockRecv) return;
 
-            auto mnOutpoint = m_mn_activeman->GetOutPoint();
+            auto mnOutpoint = WITH_LOCK(activeMasternodeInfoCs, return activeMasternodeInfo.outpoint);
 
             if (ranges::any_of(vecCoinJoinQueue,
                                [&mnOutpoint](const auto& q){return q.masternodeOutpoint == mnOutpoint;})) {
@@ -82,9 +78,9 @@ void CCoinJoinServer::ProcessDSACCEPT(CNode& peer, CDataStream& vRecv)
             }
         }
 
-        int64_t nLastDsq = m_mn_metaman.GetMetaInfo(dmn->proTxHash)->GetLastDsq();
-        int64_t nDsqThreshold = m_mn_metaman.GetDsqThreshold(dmn->proTxHash, mnList.GetValidMNsCount());
-        if (nLastDsq != 0 && nDsqThreshold > m_mn_metaman.GetDsqCount()) {
+        int64_t nLastDsq = mmetaman->GetMetaInfo(dmn->proTxHash)->GetLastDsq();
+        int64_t nDsqThreshold = mmetaman->GetDsqThreshold(dmn->proTxHash, mnList.GetValidMNsCount());
+        if (nLastDsq != 0 && nDsqThreshold > mmetaman->GetDsqCount()) {
             if (fLogIPs) {
                 LogPrint(BCLog::COINJOIN, "DSACCEPT -- last dsq too recent, must wait: peer=%d, addr=%s\n", peer.GetId(), peer.addr.ToString());
             } else {
@@ -112,8 +108,6 @@ void CCoinJoinServer::ProcessDSACCEPT(CNode& peer, CDataStream& vRecv)
 
 PeerMsgRet CCoinJoinServer::ProcessDSQUEUE(const CNode& peer, CDataStream& vRecv)
 {
-    assert(m_mn_metaman.IsValid());
-
     CCoinJoinQueue dsq;
     vRecv >> dsq;
 
@@ -121,9 +115,9 @@ PeerMsgRet CCoinJoinServer::ProcessDSQUEUE(const CNode& peer, CDataStream& vRecv
         return tl::unexpected{100};
     }
 
-    const auto tip_mn_list = m_dmnman.GetListAtChainTip();
     if (dsq.masternodeOutpoint.IsNull()) {
-        if (auto dmn = tip_mn_list.GetValidMN(dsq.m_protxHash)) {
+        auto mnList = deterministicMNManager->GetListAtChainTip();
+        if (auto dmn = mnList.GetValidMN(dsq.m_protxHash)) {
             dsq.masternodeOutpoint = dmn->collateralOutpoint;
         } else {
             return tl::unexpected{10};
@@ -151,7 +145,8 @@ PeerMsgRet CCoinJoinServer::ProcessDSQUEUE(const CNode& peer, CDataStream& vRecv
 
     if (dsq.IsTimeOutOfBounds()) return {};
 
-    auto dmn = tip_mn_list.GetValidMNByCollateral(dsq.masternodeOutpoint);
+    auto mnList = deterministicMNManager->GetListAtChainTip();
+    auto dmn = mnList.GetValidMNByCollateral(dsq.masternodeOutpoint);
     if (!dmn) return {};
 
     if (dsq.m_protxHash.IsNull()) {
@@ -163,15 +158,15 @@ PeerMsgRet CCoinJoinServer::ProcessDSQUEUE(const CNode& peer, CDataStream& vRecv
     }
 
     if (!dsq.fReady) {
-        int64_t nLastDsq = m_mn_metaman.GetMetaInfo(dmn->proTxHash)->GetLastDsq();
-        int64_t nDsqThreshold = m_mn_metaman.GetDsqThreshold(dmn->proTxHash, tip_mn_list.GetValidMNsCount());
-        LogPrint(BCLog::COINJOIN, "DSQUEUE -- nLastDsq: %d  nDsqThreshold: %d  nDsqCount: %d\n", nLastDsq, nDsqThreshold, m_mn_metaman.GetDsqCount());
+        int64_t nLastDsq = mmetaman->GetMetaInfo(dmn->proTxHash)->GetLastDsq();
+        int64_t nDsqThreshold = mmetaman->GetDsqThreshold(dmn->proTxHash, mnList.GetValidMNsCount());
+        LogPrint(BCLog::COINJOIN, "DSQUEUE -- nLastDsq: %d  nDsqThreshold: %d  nDsqCount: %d\n", nLastDsq, nDsqThreshold, mmetaman->GetDsqCount());
         //don't allow a few nodes to dominate the queuing process
-        if (nLastDsq != 0 && nDsqThreshold > m_mn_metaman.GetDsqCount()) {
+        if (nLastDsq != 0 && nDsqThreshold > mmetaman->GetDsqCount()) {
             LogPrint(BCLog::COINJOIN, "DSQUEUE -- Masternode %s is sending too many dsq messages\n", dmn->pdmnState->addr.ToString());
             return {};
         }
-        m_mn_metaman.AllowMixing(dmn->proTxHash);
+        mmetaman->AllowMixing(dmn->proTxHash);
 
         LogPrint(BCLog::COINJOIN, "DSQUEUE -- new CoinJoin queue (%s) from masternode %s\n", dsq.ToString(), dmn->pdmnState->addr.ToString());
 
@@ -249,7 +244,7 @@ void CCoinJoinServer::SetNull()
 //
 void CCoinJoinServer::CheckPool()
 {
-    if (!m_mn_activeman) return;
+    if (!fMasternodeMode) return;
 
     if (int entries = GetEntriesCount(); entries != 0) LogPrint(BCLog::COINJOIN, "CCoinJoinServer::CheckPool -- entries count %lu\n", entries);
 
@@ -312,7 +307,7 @@ void CCoinJoinServer::CreateFinalTransaction()
 void CCoinJoinServer::CommitFinalTransaction()
 {
     AssertLockNotHeld(cs_coinjoin);
-    if (!m_mn_activeman) return; // check and relay final tx only on masternode
+    if (!fMasternodeMode) return; // check and relay final tx only on masternode
 
     CTransactionRef finalTransaction = WITH_LOCK(cs_coinjoin, return MakeTransactionRef(finalMutableTransaction));
     uint256 hashTx = finalTransaction->GetHash();
@@ -335,19 +330,19 @@ void CCoinJoinServer::CommitFinalTransaction()
     LogPrint(BCLog::COINJOIN, "CCoinJoinServer::CommitFinalTransaction -- CREATING DSTX\n");
 
     // create and sign masternode dstx transaction
-    if (!m_dstxman.GetDSTX(hashTx)) {
+    if (!::dstxManager->GetDSTX(hashTx)) {
         CCoinJoinBroadcastTx dstxNew(finalTransaction,
-                                    m_mn_activeman->GetOutPoint(),
-                                    m_mn_activeman->GetProTxHash(),
+                                    WITH_LOCK(activeMasternodeInfoCs, return activeMasternodeInfo.outpoint),
+                                    WITH_LOCK(activeMasternodeInfoCs, return activeMasternodeInfo.proTxHash),
                                     GetAdjustedTime());
-        dstxNew.Sign(*m_mn_activeman);
-        m_dstxman.AddDSTX(dstxNew);
+        dstxNew.Sign();
+        ::dstxManager->AddDSTX(dstxNew);
     }
 
     LogPrint(BCLog::COINJOIN, "CCoinJoinServer::CommitFinalTransaction -- TRANSMITTING DSTX\n");
 
     CInv inv(MSG_DSTX, hashTx);
-    Assert(m_peerman)->RelayInv(inv);
+    connman.RelayInv(inv);
 
     // Tell the clients it was successful
     RelayCompletedTransaction(MSG_SUCCESS);
@@ -375,7 +370,7 @@ void CCoinJoinServer::CommitFinalTransaction()
 void CCoinJoinServer::ChargeFees() const
 {
     AssertLockNotHeld(cs_coinjoin);
-    if (!m_mn_activeman) return;
+    if (!fMasternodeMode) return;
 
     //we don't need to charge collateral for every offence.
     if (GetRandInt(100) > 33) return;
@@ -437,13 +432,13 @@ void CCoinJoinServer::ChargeFees() const
 
     Being that mixing has "no fees" we need to have some kind of cost associated
     with using it to stop abuse. Otherwise, it could serve as an attack vector and
-    allow endless transaction that would bloat Dash and make it unusable. To
+    allow endless transaction that would bloat Ogva and make it unusable. To
     stop these kinds of attacks 1 in 10 successful transactions are charged. This
     adds up to a cost of 0.001DRK per transaction on average.
 */
 void CCoinJoinServer::ChargeRandomFees() const
 {
-    if (!m_mn_activeman) return;
+    if (!fMasternodeMode) return;
 
     for (const auto& txCollateral : vecSessionCollaterals) {
         if (GetRandInt(100) > 10) return;
@@ -458,14 +453,14 @@ void CCoinJoinServer::ConsumeCollateral(const CTransactionRef& txref) const
     if (!ATMPIfSaneFee(m_chainstate, mempool, txref, false /* bypass_limits */)) {
         LogPrint(BCLog::COINJOIN, "%s -- AcceptToMemoryPool failed\n", __func__);
     } else {
-        Assert(m_peerman)->RelayTransaction(txref->GetHash());
+        connman.RelayTransaction(*txref);
         LogPrint(BCLog::COINJOIN, "%s -- Collateral was consumed\n", __func__);
     }
 }
 
 bool CCoinJoinServer::HasTimedOut() const
 {
-    if (!m_mn_activeman) return false;
+    if (!fMasternodeMode) return false;
 
     if (nState == POOL_STATE_IDLE) return false;
 
@@ -479,7 +474,7 @@ bool CCoinJoinServer::HasTimedOut() const
 //
 void CCoinJoinServer::CheckTimeout()
 {
-    if (!m_mn_activeman) return;
+    if (!fMasternodeMode) return;
 
     CheckQueue();
 
@@ -499,18 +494,18 @@ void CCoinJoinServer::CheckTimeout()
 */
 void CCoinJoinServer::CheckForCompleteQueue()
 {
-    if (!m_mn_activeman) return;
+    if (!fMasternodeMode) return;
 
     if (nState == POOL_STATE_QUEUE && IsSessionReady()) {
         SetState(POOL_STATE_ACCEPTING_ENTRIES);
 
         CCoinJoinQueue dsq(nSessionDenom,
-                            m_mn_activeman->GetOutPoint(),
-                            m_mn_activeman->GetProTxHash(),
+                            WITH_LOCK(activeMasternodeInfoCs, return activeMasternodeInfo.outpoint),
+                            WITH_LOCK(activeMasternodeInfoCs, return activeMasternodeInfo.proTxHash),
                             GetAdjustedTime(), true);
         LogPrint(BCLog::COINJOIN, "CCoinJoinServer::CheckForCompleteQueue -- queue is ready, signing and relaying (%s) " /* Continued */
                                      "with %d participants\n", dsq.ToString(), vecSessionCollaterals.size());
-        dsq.Sign(*m_mn_activeman);
+        dsq.Sign();
         dsq.Relay(connman);
     }
 }
@@ -546,7 +541,7 @@ bool CCoinJoinServer::IsInputScriptSigValid(const CTxIn& txin) const
     if (nTxInIndex >= 0) { //might have to do this one input at a time?
         txNew.vin[nTxInIndex].scriptSig = txin.scriptSig;
         LogPrint(BCLog::COINJOIN, "CCoinJoinServer::IsInputScriptSigValid -- verifying scriptSig %s\n", ScriptToAsmStr(txin.scriptSig).substr(0, 24));
-        // TODO we're using amount=0 here but we should use the correct amount. This works because Dash ignores the amount while signing/verifying (only used in Bitcoin/Segwit)
+        // TODO we're using amount=0 here but we should use the correct amount. This works because Ogva ignores the amount while signing/verifying (only used in Bitcoin/Segwit)
         if (!VerifyScript(txNew.vin[nTxInIndex].scriptSig, sigPubKey, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC, MutableTransactionSignatureChecker(&txNew, nTxInIndex, 0))) {
             LogPrint(BCLog::COINJOIN, "CCoinJoinServer::IsInputScriptSigValid -- VerifyScript() failed on input %d\n", nTxInIndex);
             return false;
@@ -566,7 +561,7 @@ bool CCoinJoinServer::IsInputScriptSigValid(const CTxIn& txin) const
 bool CCoinJoinServer::AddEntry(const CCoinJoinEntry& entry, PoolMessage& nMessageIDRet)
 {
     AssertLockNotHeld(cs_coinjoin);
-    if (!m_mn_activeman) return false;
+    if (!fMasternodeMode) return false;
 
     if (size_t(GetEntriesCount()) >= vecSessionCollaterals.size()) {
         LogPrint(BCLog::COINJOIN, "CCoinJoinServer::%s -- ERROR: entries is full!\n", __func__);
@@ -574,7 +569,7 @@ bool CCoinJoinServer::AddEntry(const CCoinJoinEntry& entry, PoolMessage& nMessag
         return false;
     }
 
-    if (!CoinJoin::IsCollateralValid(m_chainstate, mempool, *entry.txCollateral)) {
+    if (!CoinJoin::IsCollateralValid(mempool, *entry.txCollateral)) {
         LogPrint(BCLog::COINJOIN, "CCoinJoinServer::%s -- ERROR: collateral not valid!\n", __func__);
         nMessageIDRet = ERR_INVALID_COLLATERAL;
         return false;
@@ -608,7 +603,7 @@ bool CCoinJoinServer::AddEntry(const CCoinJoinEntry& entry, PoolMessage& nMessag
     }
 
     bool fConsumeCollateral{false};
-    if (!IsValidInOuts(m_chainstate, mempool, vin, entry.vecTxOut, nMessageIDRet, &fConsumeCollateral)) {
+    if (!IsValidInOuts(mempool, vin, entry.vecTxOut, nMessageIDRet, &fConsumeCollateral)) {
         LogPrint(BCLog::COINJOIN, "CCoinJoinServer::%s -- ERROR! IsValidInOuts() failed: %s\n", __func__, CoinJoin::GetMessageByID(nMessageIDRet).translated);
         if (fConsumeCollateral) {
             ConsumeCollateral(entry.txCollateral);
@@ -675,7 +670,7 @@ bool CCoinJoinServer::IsSignaturesComplete() const
 
 bool CCoinJoinServer::IsAcceptableDSA(const CCoinJoinAccept& dsa, PoolMessage& nMessageIDRet) const
 {
-    if (!m_mn_activeman) return false;
+    if (!fMasternodeMode) return false;
 
     // is denom even something legit?
     if (!CoinJoin::IsValidDenomination(dsa.nDenom)) {
@@ -685,7 +680,7 @@ bool CCoinJoinServer::IsAcceptableDSA(const CCoinJoinAccept& dsa, PoolMessage& n
     }
 
     // check collateral
-    if (!fUnitTest && !CoinJoin::IsCollateralValid(m_chainstate, mempool, CTransaction(dsa.txCollateral))) {
+    if (!fUnitTest && !CoinJoin::IsCollateralValid(mempool, CTransaction(dsa.txCollateral))) {
         LogPrint(BCLog::COINJOIN, "CCoinJoinServer::%s -- collateral not valid!\n", __func__);
         nMessageIDRet = ERR_INVALID_COLLATERAL;
         return false;
@@ -696,7 +691,7 @@ bool CCoinJoinServer::IsAcceptableDSA(const CCoinJoinAccept& dsa, PoolMessage& n
 
 bool CCoinJoinServer::CreateNewSession(const CCoinJoinAccept& dsa, PoolMessage& nMessageIDRet)
 {
-    if (!m_mn_activeman || nSessionID != 0) return false;
+    if (!fMasternodeMode || nSessionID != 0) return false;
 
     // new session can only be started in idle mode
     if (nState != POOL_STATE_IDLE) {
@@ -719,11 +714,11 @@ bool CCoinJoinServer::CreateNewSession(const CCoinJoinAccept& dsa, PoolMessage& 
     if (!fUnitTest) {
         //broadcast that I'm accepting entries, only if it's the first entry through
         CCoinJoinQueue dsq(nSessionDenom,
-                            m_mn_activeman->GetOutPoint(),
-                            m_mn_activeman->GetProTxHash(),
+                            WITH_LOCK(activeMasternodeInfoCs, return activeMasternodeInfo.outpoint),
+                            WITH_LOCK(activeMasternodeInfoCs, return activeMasternodeInfo.proTxHash),
                             GetAdjustedTime(), false);
         LogPrint(BCLog::COINJOIN, "CCoinJoinServer::CreateNewSession -- signing and relaying new queue: %s\n", dsq.ToString());
-        dsq.Sign(*m_mn_activeman);
+        dsq.Sign();
         dsq.Relay(connman);
         LOCK(cs_vecqueue);
         vecCoinJoinQueue.push_back(dsq);
@@ -738,7 +733,7 @@ bool CCoinJoinServer::CreateNewSession(const CCoinJoinAccept& dsa, PoolMessage& 
 
 bool CCoinJoinServer::AddUserToExistingSession(const CCoinJoinAccept& dsa, PoolMessage& nMessageIDRet)
 {
-    if (!m_mn_activeman || nSessionID == 0 || IsSessionReady()) return false;
+    if (!fMasternodeMode || nSessionID == 0 || IsSessionReady()) return false;
 
     if (!IsAcceptableDSA(dsa, nMessageIDRet)) {
         return false;
@@ -874,7 +869,7 @@ void CCoinJoinServer::RelayCompletedTransaction(PoolMessage nMessageID)
 
 void CCoinJoinServer::SetState(PoolState nStateNew)
 {
-    if (!m_mn_activeman) return;
+    if (!fMasternodeMode) return;
 
     if (nStateNew == POOL_STATE_ERROR) {
         LogPrint(BCLog::COINJOIN, "CCoinJoinServer::SetState -- Can't set state to ERROR as a Masternode. \n");
@@ -888,7 +883,7 @@ void CCoinJoinServer::SetState(PoolState nStateNew)
 
 void CCoinJoinServer::DoMaintenance()
 {
-    if (!m_mn_activeman) return; // only run on masternodes
+    if (!fMasternodeMode) return; // only run on masternodes
     if (!m_mn_sync.IsBlockchainSynced()) return;
     if (ShutdownRequested()) return;
 

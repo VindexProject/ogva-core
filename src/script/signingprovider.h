@@ -6,6 +6,7 @@
 #ifndef BITCOIN_SCRIPT_SIGNINGPROVIDER_H
 #define BITCOIN_SCRIPT_SIGNINGPROVIDER_H
 
+#include <hdchain.h>
 #include <key.h>
 #include <pubkey.h>
 #include <script/script.h>

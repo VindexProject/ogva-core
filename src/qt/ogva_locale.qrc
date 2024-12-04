@@ -1,0 +1,25 @@
+<!DOCTYPE RCC><RCC version="1.0">
+    <qresource prefix="/translations">
+        <file alias="ar">locale/ogva_ar.qm</file>
+        <file alias="bg">locale/ogva_bg.qm</file>
+        <file alias="de">locale/ogva_de.qm</file>
+        <file alias="en">locale/ogva_en.qm</file>
+        <file alias="es">locale/ogva_es.qm</file>
+        <file alias="fi">locale/ogva_fi.qm</file>
+        <file alias="fr">locale/ogva_fr.qm</file>
+        <file alias="it">locale/ogva_it.qm</file>
+        <file alias="ja">locale/ogva_ja.qm</file>
+        <file alias="ko">locale/ogva_ko.qm</file>
+        <file alias="nl">locale/ogva_nl.qm</file>
+        <file alias="pl">locale/ogva_pl.qm</file>
+        <file alias="pt">locale/ogva_pt.qm</file>
+        <file alias="ro">locale/ogva_ro.qm</file>
+        <file alias="ru">locale/ogva_ru.qm</file>
+        <file alias="sk">locale/ogva_sk.qm</file>
+        <file alias="th">locale/ogva_th.qm</file>
+        <file alias="tr">locale/ogva_tr.qm</file>
+        <file alias="vi">locale/ogva_vi.qm</file>
+        <file alias="zh_CN">locale/ogva_zh_CN.qm</file>
+        <file alias="zh_TW">locale/ogva_zh_TW.qm</file>
+    </qresource>
+</RCC>

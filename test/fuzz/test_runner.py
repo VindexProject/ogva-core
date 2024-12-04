@@ -13,12 +13,9 @@ import os
 import subprocess
 import sys
 
-
-def get_fuzz_env(*, target, source_dir):
+def get_fuzz_env(*, target):
     return {
         'FUZZ': target,
-        'UBSAN_OPTIONS':
-        f'suppressions={source_dir}/test/sanitizer_suppressions/ubsan:print_stacktrace=1:halt_on_error=1:report_error_type=1',
         'ASAN_OPTIONS':  # symbolizer disabled due to https://github.com/google/sanitizers/issues/1364#issuecomment-761072085
         'symbolize=0:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1',
     }
@@ -139,7 +136,7 @@ def main():
                 os.path.join(config["environment"]["BUILDDIR"], 'src', 'test', 'fuzz', 'fuzz'),
                 '-help=1',
             ],
-            env=get_fuzz_env(target=test_list_selection[0], source_dir=config['environment']['SRCDIR']),
+            env=get_fuzz_env(target=test_list_selection[0]),
             timeout=20,
             check=True,
             stderr=subprocess.PIPE,
@@ -156,7 +153,6 @@ def main():
         if args.generate:
             return generate_corpus(
                 fuzz_pool=fuzz_pool,
-                src_dir=config['environment']['SRCDIR'],
                 build_dir=config["environment"]["BUILDDIR"],
                 corpus_dir=args.corpus_dir,
                 targets=test_list_selection,
@@ -167,7 +163,6 @@ def main():
                 fuzz_pool=fuzz_pool,
                 corpus=args.corpus_dir,
                 test_list=test_list_selection,
-                src_dir=config['environment']['SRCDIR'],
                 build_dir=config["environment"]["BUILDDIR"],
                 merge_dir=args.m_dir,
             )
@@ -177,7 +172,6 @@ def main():
             fuzz_pool=fuzz_pool,
             corpus=args.corpus_dir,
             test_list=test_list_selection,
-            src_dir=config['environment']['SRCDIR'],
             build_dir=config["environment"]["BUILDDIR"],
             use_valgrind=args.valgrind,
         )
@@ -197,7 +191,7 @@ def generate_corpus(*, fuzz_pool, src_dir, build_dir, corpus_dir, targets):
             ' '.join(command),
             subprocess.run(
                 command,
-                env=get_fuzz_env(target=t, source_dir=src_dir),
+                env=get_fuzz_env(target=t),
                 check=True,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -218,7 +212,7 @@ def generate_corpus(*, fuzz_pool, src_dir, build_dir, corpus_dir, targets):
         future.result()
 
 
-def merge_inputs(*, fuzz_pool, corpus, test_list, src_dir, build_dir, merge_dir):
+def merge_inputs(*, fuzz_pool, corpus, test_list, build_dir, merge_dir):
     logging.info("Merge the inputs from the passed dir into the corpus_dir. Passed dir {}".format(merge_dir))
     jobs = []
     for t in test_list:
@@ -238,7 +232,7 @@ def merge_inputs(*, fuzz_pool, corpus, test_list, src_dir, build_dir, merge_dir)
             output = 'Run {} with args {}\n'.format(t, " ".join(args))
             output += subprocess.run(
                 args,
-                env=get_fuzz_env(target=t, source_dir=src_dir),
+                env=get_fuzz_env(target=t),
                 check=True,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -251,7 +245,7 @@ def merge_inputs(*, fuzz_pool, corpus, test_list, src_dir, build_dir, merge_dir)
         future.result()
 
 
-def run_once(*, fuzz_pool, corpus, test_list, src_dir, build_dir, use_valgrind):
+def run_once(*, fuzz_pool, corpus, test_list, build_dir, use_valgrind):
     jobs = []
     for t in test_list:
         corpus_path = os.path.join(corpus, t)
@@ -268,7 +262,7 @@ def run_once(*, fuzz_pool, corpus, test_list, src_dir, build_dir, use_valgrind):
             output = 'Run {} with args {}'.format(t, args)
             result = subprocess.run(
                 args,
-                env=get_fuzz_env(target=t, source_dir=src_dir),
+                env=get_fuzz_env(target=t),
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
             )

@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Name=Ogva Core
+Comment=Ogva P2P Cryptocurrency
+Comment[de]=Verbinde mit dem Ogva peer-to-peer Netzwerk
+Comment[fr]=Ogva, monnaie virtuelle cryptographique pair à pair
+Comment[tr]=Ogva, eşten eşe kriptografik sanal para birimi
+Exec=ogva-qt %u
+Terminal=false
+Type=Application
+Icon=ogva128
+MimeType=x-scheme-handler/ogva;
+Categories=Office;Finance;P2P;Network;Qt;
+StartupWMClass=Ogva-qt

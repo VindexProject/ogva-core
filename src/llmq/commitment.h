@@ -17,8 +17,6 @@
 #include <univalue.h>
 
 class CBlockIndex;
-class CDeterministicMNManager;
-class ChainstateManager;
 class TxValidationState;
 
 namespace llmq
@@ -38,7 +36,7 @@ public:
     static constexpr uint16_t BASIC_BLS_INDEXED_QUORUM_VERSION = 4;
 
     uint16_t nVersion{LEGACY_BLS_NON_INDEXED_QUORUM_VERSION};
-    Consensus::LLMQType llmqType{Consensus::LLMQType::LLMQ_NONE};
+    Consensus::LLMQType llmqType{Consensus::LLMQ_NONE};
     uint256 quorumHash;
     int16_t quorumIndex{0};
     std::vector<bool> signers;
@@ -63,7 +61,7 @@ public:
         return int(std::count(validMembers.begin(), validMembers.end(), true));
     }
 
-    bool Verify(CDeterministicMNManager& dmnman, gsl::not_null<const CBlockIndex*> pQuorumBaseBlockIndex, bool checkSigs) const;
+    bool Verify(gsl::not_null<const CBlockIndex*> pQuorumBaseBlockIndex, bool checkSigs) const;
     bool VerifyNull() const;
     bool VerifySizes(const Consensus::LLMQParams& params) const;
 
@@ -173,7 +171,7 @@ public:
     }
 };
 
-bool CheckLLMQCommitment(CDeterministicMNManager& dmnman, const ChainstateManager& chainman, const CTransaction& tx, gsl::not_null<const CBlockIndex*> pindexPrev, TxValidationState& state);
+bool CheckLLMQCommitment(const CTransaction& tx, gsl::not_null<const CBlockIndex*> pindexPrev, TxValidationState& state);
 
 uint256 BuildCommitmentHash(Consensus::LLMQType llmqType, const uint256& blockHash, const std::vector<bool>& validMembers, const CBLSPublicKey& pubKey, const uint256& vvecHash);
 

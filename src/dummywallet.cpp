@@ -22,7 +22,7 @@ public:
     bool ParameterInteraction() const override {return true;}
     void Construct(NodeContext& node) const override {LogPrintf("No wallet support compiled in!\n");}
 
-    // Dash Specific WalletInitInterface InitCoinJoinSettings
+    // Ogva Specific WalletInitInterface InitCoinJoinSettings
     void AutoLockMasternodeCollaterals() const override {}
     void InitCoinJoinSettings(const CoinJoinWalletManager& cjwalletman) const override {}
     bool InitAutoBackup() const override {return true;}
@@ -36,7 +36,6 @@ void DummyWalletInit::AddWalletOptions(ArgsManager& argsman) const
         "-disablewallet",
         "-instantsendnotify=<cmd>",
         "-keypool=<n>",
-        "-maxapsfee=<n>",
         "-maxtxfee=<amt>",
         "-rescan=<mode>",
         "-salvagewallet",

@@ -150,15 +150,13 @@ private:
 
 private:
     const std::unique_ptr<db_type> m_db;
-    bool is_valid{false};
+    const bool is_valid{false};
 
     std::vector<uint256> vecDirtyGovernanceObjectHashes GUARDED_BY(cs);
 
 public:
-    explicit CMasternodeMetaMan();
+    explicit CMasternodeMetaMan(bool load_cache);
     ~CMasternodeMetaMan();
-
-    bool LoadCache(bool load_cache);
 
     bool IsValid() const { return is_valid; }
 
@@ -175,5 +173,7 @@ public:
 
     std::vector<uint256> GetAndClearDirtyGovernanceObjectHashes();
 };
+
+extern std::unique_ptr<CMasternodeMetaMan> mmetaman;
 
 #endif // BITCOIN_MASTERNODE_META_H

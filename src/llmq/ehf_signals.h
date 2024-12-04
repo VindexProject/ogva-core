@@ -11,10 +11,9 @@
 
 class CBlockIndex;
 class CChainState;
-class CMNHFManager;
+class CConnman;
 class CSporkManager;
 class CTxMemPool;
-class PeerManager;
 
 namespace llmq
 {
@@ -26,13 +25,12 @@ class CEHFSignalsHandler : public CRecoveredSigsListener
 {
 private:
     CChainState& chainstate;
-    CMNHFManager& mnhfman;
+    CConnman& connman;
     CSigningManager& sigman;
     CSigSharesManager& shareman;
-    CTxMemPool& mempool;
-    const CQuorumManager& qman;
     const CSporkManager& sporkman;
-    const std::unique_ptr<PeerManager>& m_peerman;
+    const CQuorumManager& qman;
+    CTxMemPool& mempool;
 
     /**
      * keep freshly generated IDs for easier filter sigs in HandleNewRecoveredSig
@@ -40,21 +38,21 @@ private:
     mutable Mutex cs;
     std::set<uint256> ids GUARDED_BY(cs);
 public:
-    explicit CEHFSignalsHandler(CChainState& chainstate, CMNHFManager& mnhfman, CSigningManager& sigman,
-                                CSigSharesManager& shareman, CTxMemPool& mempool, const CQuorumManager& qman,
-                                const CSporkManager& sporkman, const std::unique_ptr<PeerManager>& peerman);
+    explicit CEHFSignalsHandler(CChainState& chainstate, CConnman& connman,
+                                CSigningManager& sigman, CSigSharesManager& shareman,
+                                const CSporkManager& sporkman, const CQuorumManager& qman, CTxMemPool& mempool);
     ~CEHFSignalsHandler();
 
 
     /**
      * Since Tip is updated it could be a time to generate EHF Signal
      */
-    void UpdatedBlockTip(const CBlockIndex* const pindexNew, bool is_masternode) EXCLUSIVE_LOCKS_REQUIRED(!cs);
+    void UpdatedBlockTip(const CBlockIndex* const pindexNew);
 
-    void HandleNewRecoveredSig(const CRecoveredSig& recoveredSig) override EXCLUSIVE_LOCKS_REQUIRED(!cs);
+    void HandleNewRecoveredSig(const CRecoveredSig& recoveredSig) override LOCKS_EXCLUDED(cs);
 
 private:
-    void trySignEHFSignal(int bit, const CBlockIndex* const pindex) EXCLUSIVE_LOCKS_REQUIRED(!cs);
+    void trySignEHFSignal(int bit, const CBlockIndex* const pindex) LOCKS_EXCLUDED(cs);
 
 };
 

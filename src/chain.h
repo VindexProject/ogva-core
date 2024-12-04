@@ -179,7 +179,7 @@ public:
     //!
     //! Note: this value is modified to show BLOCK_OPT_WITNESS during UTXO snapshot
     //! load to avoid the block index being spuriously rewound.
-    //! @sa NeedsRedownload
+    //! @sa RewindBlockIndex
     //! @sa ActivateSnapshot
     uint32_t nStatus{0};
 
@@ -239,6 +239,7 @@ public:
         block.nNonce         = nNonce;
         return block;
     }
+    
 
     uint256 GetBlockHash() const
     {

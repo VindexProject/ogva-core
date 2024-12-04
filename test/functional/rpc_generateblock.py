@@ -26,13 +26,13 @@ class GenerateBlockTest(BitcoinTestFramework):
         hash = node.generateblock(address, [])['hash']
         block = node.getblock(hash, 2)
         assert_equal(len(block['tx']), 1)
-        assert_equal(block['tx'][0]['vout'][0]['scriptPubKey']['address'], address)
+        assert_equal(block['tx'][0]['vout'][0]['scriptPubKey']['addresses'][0], address)
 
         self.log.info('Generate an empty block to a descriptor')
         hash = node.generateblock('addr(' + address + ')', [])['hash']
         block = node.getblock(hash, 2)
         assert_equal(len(block['tx']), 1)
-        assert_equal(block['tx'][0]['vout'][0]['scriptPubKey']['address'], address)
+        assert_equal(block['tx'][0]['vout'][0]['scriptPubKey']['addresses'][0], address)
 
         self.log.info('Generate an empty block to a combo descriptor with compressed pubkey')
         combo_key = '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798'
@@ -40,7 +40,7 @@ class GenerateBlockTest(BitcoinTestFramework):
         hash = node.generateblock('combo(' + combo_key + ')', [])['hash']
         block = node.getblock(hash, 2)
         assert_equal(len(block['tx']), 1)
-        assert_equal(block['tx'][0]['vout'][0]['scriptPubKey']['address'], combo_address)
+        assert_equal(block['tx'][0]['vout'][0]['scriptPubKey']['addresses'][0], combo_address)
 
         # Generate 110 blocks to spend
         node.generatetoaddress(110, address)
@@ -67,7 +67,7 @@ class GenerateBlockTest(BitcoinTestFramework):
         assert_equal(node.gettransaction(txid)['hex'], signed_raw)
 
         self.log.info('Fail to generate block with out of order txs')
-        raw1 = node.createrawtransaction([{'txid':txid, 'vout':0}],[{address:0.9999}])
+        raw1 = node.createrawtransaction([{'txid':txid, 'vout':0}],[{address:0.9969}])
         signed_raw1 = node.signrawtransactionwithwallet(raw1)['hex']
         txid1 = node.sendrawtransaction(signed_raw1)
         raw2 = node.createrawtransaction([{'txid':txid1, 'vout':0}],[{address:0.999}])

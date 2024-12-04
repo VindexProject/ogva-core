@@ -466,7 +466,7 @@ See detailed [set of changes](https://github.com/dashpay/dash/compare/v0.15.0.0.
 - [`d08b971ddb`](https://github.com/dashpay/dash/commit/d08b971ddb) Use correct CURRENT_VERSION constants when creating ProTx-es via rpc (#3524)
 - [`4ae57a2276`](https://github.com/dashpay/dash/commit/4ae57a2276) qt: Fix label updates in SendCoinsEntry (#3523)
 - [`1a54f0392d`](https://github.com/dashpay/dash/commit/1a54f0392d) Revert "implemented labeler which automatically adds RPC label to anything modifying RPC files (#3499)" (#3517)
-- [`acff9998e1`](https://github.com/dashpay/dash/commit/acff9998e1) UpgradeDBIfNeeded failure should require reindexing (#3516)
+- [`acff9968e1`](https://github.com/dashpay/dash/commit/acff9968e1) UpgradeDBIfNeeded failure should require reindexing (#3516)
 - [`1163fc70a2`](https://github.com/dashpay/dash/commit/1163fc70a2) Use correct CURRENT_VERSION constants when checking ProTx version (#3515)
 - [`0186fdfe60`](https://github.com/dashpay/dash/commit/0186fdfe60) Fix chainlock scheduler handling (#3514)
 - [`b4008ee4fc`](https://github.com/dashpay/dash/commit/b4008ee4fc) Some Dashification (#3513)

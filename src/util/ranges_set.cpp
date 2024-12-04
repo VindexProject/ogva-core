@@ -37,7 +37,7 @@ bool CRangesSet::Add(uint64_t value)
     if (next != ranges.end()) {
         if (next->begin == value + 1) {
             new_range.end = next->end;
-            ranges.erase(next);
+            it = ranges.erase(next);
         }
     }
     const auto ret = ranges.insert(new_range);

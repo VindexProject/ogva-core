@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2020 The Bitcoin Core developers
+// Copyright (c) 2018-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -6,10 +6,9 @@
 #define BITCOIN_INTERFACES_NODE_H
 
 #include <amount.h>     // For CAmount
-#include <net.h>        // For NodeId
+#include <net.h>        // For CConnman::NumConnections
 #include <net_types.h>  // For banmap_t
 #include <netaddress.h> // For Network
-#include <netbase.h>    // For ConnectionDirection
 #include <support/allocators/secure.h> // For SecureString
 #include <uint256.h>
 #include <util/translation.h>
@@ -32,7 +31,7 @@ class CNodeStats;
 class Coin;
 class RPCTimerInterface;
 class UniValue;
-class Proxy;
+class proxyType;
 struct bilingual_str;
 enum class SynchronizationState;
 struct CNodeStateStats;
@@ -48,7 +47,7 @@ class Loader;
 } //namespsace CoinJoin
 struct BlockTip;
 
-//! Interface for the src/evo part of a dash node (dashd process).
+//! Interface for the src/evo part of a ogva node (ogvad process).
 class EVO
 {
 public:
@@ -57,7 +56,7 @@ public:
     virtual void setContext(NodeContext* context) {}
 };
 
-//! Interface for the src/governance part of a dash node (dashd process).
+//! Interface for the src/governance part of a ogva node (ogvad process).
 class GOV
 {
 public:
@@ -65,11 +64,10 @@ public:
     virtual void getAllNewerThan(std::vector<CGovernanceObject> &objs, int64_t nMoreThanTime) = 0;
     virtual int32_t getObjAbsYesCount(const CGovernanceObject& obj, vote_signal_enum_t vote_signal) = 0;
     virtual bool getObjLocalValidity(const CGovernanceObject& obj, std::string& error, bool check_collateral) = 0;
-    virtual bool isEnabled() = 0;
     virtual void setContext(NodeContext* context) {}
 };
 
-//! Interface for the src/llmq part of a dash node (dashd process).
+//! Interface for the src/llmq part of a ogva node (ogvad process).
 class LLMQ
 {
 public:
@@ -78,7 +76,7 @@ public:
     virtual void setContext(NodeContext* context) {}
 };
 
-//! Interface for the src/masternode part of a dash node (dashd process).
+//! Interface for the src/masternode part of a ogva node (ogvad process).
 namespace Masternode
 {
 class Sync
@@ -134,7 +132,7 @@ struct BlockAndHeaderTipInfo
     double verification_progress;
 };
 
-//! Top-level interface for a dash node (dashd process).
+//! Top-level interface for a ogva node (ogvad process).
 class Node
 {
 public:
@@ -174,10 +172,10 @@ public:
     virtual void mapPort(bool use_upnp, bool use_natpmp) = 0;
 
     //! Get proxy.
-    virtual bool getProxy(Network net, Proxy& proxy_info) = 0;
+    virtual bool getProxy(Network net, proxyType& proxy_info) = 0;
 
     //! Get number of connections.
-    virtual size_t getNodeCount(ConnectionDirection flags) = 0;
+    virtual size_t getNodeCount(CConnman::NumConnections flags) = 0;
 
     //! Get stats for connected nodes.
     using NodesStats = std::vector<std::tuple<CNodeStats, bool, CNodeStateStats>>;
@@ -231,9 +229,6 @@ public:
     //! Is initial block download.
     virtual bool isInitialBlockDownload() = 0;
 
-    //! Is masternode.
-    virtual bool isMasternode() = 0;
-
     //! Get reindex.
     virtual bool getReindex() = 0;
 
@@ -253,7 +248,7 @@ public:
     virtual UniValue executeRpc(const std::string& command, const UniValue& params, const std::string& uri) = 0;
 
     //! List rpc commands.
-    virtual std::vector<std::pair<std::string, std::string>> listRpcCommands() = 0;
+    virtual std::vector<std::string> listRpcCommands() = 0;
 
     //! Set RPC timer interface if unset.
     virtual void rpcSetTimerInterfaceIfUnset(RPCTimerInterface* iface) = 0;

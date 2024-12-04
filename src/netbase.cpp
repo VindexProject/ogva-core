@@ -30,8 +30,8 @@
 
 // Settings
 static Mutex g_proxyinfo_mutex;
-static Proxy proxyInfo[NET_MAX] GUARDED_BY(g_proxyinfo_mutex);
-static Proxy nameProxy GUARDED_BY(g_proxyinfo_mutex);
+static proxyType proxyInfo[NET_MAX] GUARDED_BY(g_proxyinfo_mutex);
+static proxyType nameProxy GUARDED_BY(g_proxyinfo_mutex);
 int nConnectTimeout = DEFAULT_CONNECT_TIMEOUT;
 bool fNameLookup = DEFAULT_NAME_LOOKUP;
 
@@ -95,9 +95,6 @@ enum Network ParseNetwork(const std::string& net_in) {
     if (net == "i2p") {
         return NET_I2P;
     }
-    if (net == "cjdns") {
-        return NET_CJDNS;
-    }
     return NET_UNROUTABLE;
 }
 
@@ -122,7 +119,7 @@ std::vector<std::string> GetNetworkNames(bool append_unroutable)
     std::vector<std::string> names;
     for (int n = 0; n < NET_MAX; ++n) {
         const enum Network network{static_cast<Network>(n)};
-        if (network == NET_UNROUTABLE || network == NET_INTERNAL) continue;
+        if (network == NET_UNROUTABLE || network == NET_CJDNS || network == NET_INTERNAL) continue;
         names.emplace_back(GetNetworkName(network));
     }
     if (append_unroutable) {
@@ -498,11 +495,10 @@ std::unique_ptr<Sock> CreateSockTCP(const CService& address_family)
         return nullptr;
     }
 
-    auto sock = std::make_unique<Sock>(hSocket);
-
     // Ensure that waiting for I/O on this socket won't result in undefined
     // behavior.
-    if (!IsSelectableSocket(sock->Get())) {
+    if (!IsSelectableSocket(hSocket)) {
+        CloseSocket(hSocket);
         LogPrintf("Cannot create connection: non-selectable socket created (fd >= FD_SETSIZE ?)\n");
         return nullptr;
     }
@@ -511,24 +507,19 @@ std::unique_ptr<Sock> CreateSockTCP(const CService& address_family)
     int set = 1;
     // Set the no-sigpipe option on the socket for BSD systems, other UNIXes
     // should use the MSG_NOSIGNAL flag for every send.
-    if (sock->SetSockOpt(SOL_SOCKET, SO_NOSIGPIPE, (void*)&set, sizeof(int)) == SOCKET_ERROR) {
-        LogPrintf("Error setting SO_NOSIGPIPE on socket: %s, continuing anyway\n",
-                  NetworkErrorString(WSAGetLastError()));
-    }
+    setsockopt(hSocket, SOL_SOCKET, SO_NOSIGPIPE, (void*)&set, sizeof(int));
 #endif
 
     // Set the no-delay option (disable Nagle's algorithm) on the TCP socket.
-    const int on{1};
-    if (sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) == SOCKET_ERROR) {
-        LogPrint(BCLog::NET, "Unable to set TCP_NODELAY on a newly created socket, continuing anyway\n");
-    }
+    SetSocketNoDelay(hSocket);
 
     // Set the non-blocking option on the socket.
-    if (!SetSocketNonBlocking(sock->Get())) {
+    if (!SetSocketNonBlocking(hSocket)) {
+        CloseSocket(hSocket);
         LogPrintf("Error setting socket to non-blocking: %s\n", NetworkErrorString(WSAGetLastError()));
         return nullptr;
     }
-    return sock;
+    return std::make_unique<Sock>(hSocket);
 }
 
 std::function<std::unique_ptr<Sock>(const CService&)> CreateSock = CreateSockTCP;
@@ -610,7 +601,7 @@ bool ConnectSocketDirectly(const CService &addrConnect, const Sock& sock, int nT
     return true;
 }
 
-bool SetProxy(enum Network net, const Proxy &addrProxy) {
+bool SetProxy(enum Network net, const proxyType &addrProxy) {
     assert(net >= 0 && net < NET_MAX);
     if (!addrProxy.IsValid())
         return false;
@@ -619,7 +610,7 @@ bool SetProxy(enum Network net, const Proxy &addrProxy) {
     return true;
 }
 
-bool GetProxy(enum Network net, Proxy &proxyInfoOut) {
+bool GetProxy(enum Network net, proxyType &proxyInfoOut) {
     assert(net >= 0 && net < NET_MAX);
     LOCK(g_proxyinfo_mutex);
     if (!proxyInfo[net].IsValid())
@@ -628,7 +619,7 @@ bool GetProxy(enum Network net, Proxy &proxyInfoOut) {
     return true;
 }
 
-bool SetNameProxy(const Proxy &addrProxy) {
+bool SetNameProxy(const proxyType &addrProxy) {
     if (!addrProxy.IsValid())
         return false;
     LOCK(g_proxyinfo_mutex);
@@ -636,7 +627,7 @@ bool SetNameProxy(const Proxy &addrProxy) {
     return true;
 }
 
-bool GetNameProxy(Proxy &nameProxyOut) {
+bool GetNameProxy(proxyType &nameProxyOut) {
     LOCK(g_proxyinfo_mutex);
     if(!nameProxy.IsValid())
         return false;
@@ -658,7 +649,7 @@ bool IsProxy(const CNetAddr &addr) {
     return false;
 }
 
-bool ConnectThroughProxy(const Proxy& proxy, const std::string& strDest, uint16_t port, const Sock& sock, int nTimeout, bool& outProxyConnectionFailed)
+bool ConnectThroughProxy(const proxyType& proxy, const std::string& strDest, uint16_t port, const Sock& sock, int nTimeout, bool& outProxyConnectionFailed)
 {
     // first connect to proxy server
     if (!ConnectSocketDirectly(proxy.proxy, sock, nTimeout, true)) {
@@ -733,6 +724,13 @@ bool SetSocketNonBlocking(const SOCKET& hSocket)
     }
 
     return true;
+}
+
+bool SetSocketNoDelay(const SOCKET& hSocket)
+{
+    int set = 1;
+    int rc = setsockopt(hSocket, IPPROTO_TCP, TCP_NODELAY, (const char*)&set, sizeof(int));
+    return rc == 0;
 }
 
 void InterruptSocks5(bool interrupt)

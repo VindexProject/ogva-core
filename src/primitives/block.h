@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2020 The Bitcoin Core developers
+// Copyright (c) 2009-2015 The Bitcoin Core developers
+// Copyright (c) 2024-2025 The Ogva developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -31,6 +32,9 @@ public:
     uint32_t nBits;
     uint32_t nNonce;
 
+    // memory only
+    uint256 powHash;
+
     CBlockHeader()
     {
         SetNull();
@@ -46,11 +50,17 @@ public:
         nTime = 0;
         nBits = 0;
         nNonce = 0;
+        powHash.SetNull();
     }
 
     bool IsNull() const
     {
         return (nBits == 0);
+    }
+
+    void SetCache(const uint256& cache) const
+    {
+        memcpy((void*)&powHash, (const void*)&cache, 32);
     }
 
     uint256 GetHash() const;
@@ -60,6 +70,7 @@ public:
         return (int64_t)nTime;
     }
 };
+
 
 class CompressedHeaderBitField
 {
@@ -189,6 +200,11 @@ public:
     // network and disk
     std::vector<CTransactionRef> vtx;
 
+    // devfee payments
+    mutable CTxOut txoutDevfee; 
+    mutable CTxOut txoutCommunity; // community payment    
+    mutable CTxOut txoutDevelopment; // development payment    
+
     // memory only
     mutable bool fChecked;
 
@@ -214,6 +230,9 @@ public:
         CBlockHeader::SetNull();
         vtx.clear();
         fChecked = false;
+        txoutDevfee = CTxOut();
+        txoutCommunity = CTxOut();
+        txoutDevelopment = CTxOut();        
     }
 
     CBlockHeader GetBlockHeader() const

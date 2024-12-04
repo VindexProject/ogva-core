@@ -8,14 +8,12 @@
 #include <primitives/transaction.h>
 #include <uint256.h>
 
-class CActiveMasternodeManager;
-class CBLSPublicKey;
-class CDeterministicMNList;
 class CGovernanceVote;
-class CMasternodeSync;
+class CBLSPublicKey;
+class CBLSSecretKey;
+class CConnman;
 class CKey;
 class CKeyID;
-class PeerManager;
 
 // INTENTION OF MASTERNODES REGARDING ITEM
 enum vote_outcome_enum_t : uint8_t {
@@ -102,10 +100,10 @@ public:
 
     bool Sign(const CKey& key, const CKeyID& keyID);
     bool CheckSignature(const CKeyID& keyID) const;
-    bool Sign(const CActiveMasternodeManager& mn_activeman);
+    bool Sign(const CBLSSecretKey& key);
     bool CheckSignature(const CBLSPublicKey& pubKey) const;
-    bool IsValid(const CDeterministicMNList& tip_mn_list, bool useVotingKey) const;
-    void Relay(PeerManager& peerman, const CMasternodeSync& mn_sync, const CDeterministicMNList& tip_mn_list) const;
+    bool IsValid(bool useVotingKey) const;
+    void Relay(CConnman& connman) const;
 
     const COutPoint& GetMasternodeOutpoint() const { return masternodeOutpoint; }
 
@@ -118,7 +116,7 @@ public:
     uint256 GetHash() const;
     uint256 GetSignatureHash() const;
 
-    std::string ToString(const CDeterministicMNList& tip_mn_list) const;
+    std::string ToString() const;
 
     SERIALIZE_METHODS(CGovernanceVote, obj)
     {

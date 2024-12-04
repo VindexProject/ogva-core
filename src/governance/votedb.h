@@ -14,8 +14,6 @@
 #include <map>
 #include <vector>
 
-class CDeterministicMNList;
-
 /**
  * Represents the collection of votes associated with a given CGovernanceObject
  * Recently received votes are held in memory until a maximum size is reached after
@@ -66,7 +64,7 @@ public:
     std::vector<CGovernanceVote> GetVotes() const;
 
     void RemoveVotesFromMasternode(const COutPoint& outpointMasternode);
-    std::set<uint256> RemoveInvalidVotes(const CDeterministicMNList& tip_mn_list, const COutPoint& outpointMasternode, bool fProposal);
+    std::set<uint256> RemoveInvalidVotes(const COutPoint& outpointMasternode, bool fProposal);
 
     SERIALIZE_METHODS(CGovernanceObjectVoteFile, obj)
     {

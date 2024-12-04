@@ -16,17 +16,17 @@ from test_framework.messages import (
     ser_string,
 )
 
-from test_framework.test_framework import DashTestFramework
+from test_framework.test_framework import OgvaTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
     get_bip9_details,
 )
 
-class MnehfTest(DashTestFramework):
+class MnehfTest(OgvaTestFramework):
     def set_test_params(self):
-        extra_args = [["-vbparams=testdummy:0:999999999999:0:12:12:12:5:1", "-persistmempool=0"] for _ in range(4)]
-        self.set_dash_test_params(4, 3, fast_dip3_enforcement=True, extra_args=extra_args)
+        extra_args = [["-vbparams=testdummy:0:996999699969:12:12:12:5:1", "-persistmempool=0"] for _ in range(4)]
+        self.set_ogva_test_params(4, 3, fast_dip3_enforcement=True, extra_args=extra_args)
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -35,7 +35,7 @@ class MnehfTest(DashTestFramework):
         for inode in range(self.num_nodes):
             self.log.info(f"Restart node {inode} with {self.extra_args[inode]}")
             if params is not None:
-                self.extra_args[inode][0] = f"-vbparams=testdummy:{params[0]}:{params[1]}:0:12:12:12:5:1"
+                self.extra_args[inode][0] = f"-vbparams=testdummy:{params[0]}:{params[1]}:12:12:12:5:1"
                 self.log.info(f"Actual restart options: {self.extra_args[inode]}")
 
         self.restart_node(0)

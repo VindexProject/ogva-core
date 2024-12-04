@@ -13,8 +13,6 @@
 #include <set>
 
 class CDataStream;
-class CDeterministicMNManager;
-class ChainstateManager;
 class CInv;
 class CScheduler;
 
@@ -52,7 +50,7 @@ public:
 class CDKGDebugSessionStatus
 {
 public:
-    Consensus::LLMQType llmqType{Consensus::LLMQType::LLMQ_NONE};
+    Consensus::LLMQType llmqType{Consensus::LLMQ_NONE};
     uint256 quorumHash;
     uint32_t quorumHeight{0};
     QuorumPhase phase{0};
@@ -76,8 +74,7 @@ public:
 public:
     CDKGDebugSessionStatus() : statusBitset(0) {}
 
-    UniValue ToJson(CDeterministicMNManager& dmnman, const ChainstateManager& chainman,
-                    int quorumIndex, int detailLevel) const;
+    UniValue ToJson(int quorumIndex, int detailLevel) const;
 };
 
 class CDKGDebugStatus
@@ -89,15 +86,14 @@ public:
     //std::map<Consensus::LLMQType, CDKGDebugSessionStatus> sessions;
 
 public:
-    UniValue ToJson(CDeterministicMNManager& dmnman, const ChainstateManager& chainman,
-                    int detailLevel) const;
+    UniValue ToJson(int detailLevel) const;
 };
 
 class CDKGDebugManager
 {
 private:
-    mutable Mutex cs_lockStatus;
-    CDKGDebugStatus localStatus GUARDED_BY(cs_lockStatus);
+    mutable RecursiveMutex cs;
+    CDKGDebugStatus localStatus GUARDED_BY(cs);
 
 public:
     CDKGDebugManager();

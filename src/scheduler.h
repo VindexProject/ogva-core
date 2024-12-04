@@ -46,10 +46,10 @@ public:
     typedef std::function<void()> Function;
 
     /** Call func at/after time t */
-    void schedule(Function f, std::chrono::system_clock::time_point t) EXCLUSIVE_LOCKS_REQUIRED(!newTaskMutex);
+    void schedule(Function f, std::chrono::system_clock::time_point t);
 
     /** Call f once after the delta has passed */
-    void scheduleFromNow(Function f, std::chrono::milliseconds delta) EXCLUSIVE_LOCKS_REQUIRED(!newTaskMutex)
+    void scheduleFromNow(Function f, std::chrono::milliseconds delta)
     {
         schedule(std::move(f), std::chrono::system_clock::now() + delta);
     }
@@ -60,29 +60,29 @@ public:
      * The timing is not exact: Every time f is finished, it is rescheduled to run again after delta. If you need more
      * accurate scheduling, don't use this method.
      */
-    void scheduleEvery(Function f, std::chrono::milliseconds delta) EXCLUSIVE_LOCKS_REQUIRED(!newTaskMutex);
+    void scheduleEvery(Function f, std::chrono::milliseconds delta);
 
     /**
      * Mock the scheduler to fast forward in time.
      * Iterates through items on taskQueue and reschedules them
      * to be delta_seconds sooner.
      */
-    void MockForward(std::chrono::seconds delta_seconds) EXCLUSIVE_LOCKS_REQUIRED(!newTaskMutex);
+    void MockForward(std::chrono::seconds delta_seconds);
 
     /**
      * Services the queue 'forever'. Should be run in a thread.
      */
-    void serviceQueue() EXCLUSIVE_LOCKS_REQUIRED(!newTaskMutex);
+    void serviceQueue();
 
     /** Tell any threads running serviceQueue to stop as soon as the current task is done */
-    void stop() EXCLUSIVE_LOCKS_REQUIRED(!newTaskMutex)
+    void stop()
     {
         WITH_LOCK(newTaskMutex, stopRequested = true);
         newTaskScheduled.notify_all();
         if (m_service_thread.joinable()) m_service_thread.join();
     }
     /** Tell any threads running serviceQueue to stop when there is no work left to be done */
-    void StopWhenDrained() EXCLUSIVE_LOCKS_REQUIRED(!newTaskMutex)
+    void StopWhenDrained()
     {
         WITH_LOCK(newTaskMutex, stopWhenEmpty = true);
         newTaskScheduled.notify_all();
@@ -94,11 +94,10 @@ public:
      * and first and last task times
      */
     size_t getQueueInfo(std::chrono::system_clock::time_point& first,
-                        std::chrono::system_clock::time_point& last) const
-        EXCLUSIVE_LOCKS_REQUIRED(!newTaskMutex);
+                        std::chrono::system_clock::time_point& last) const;
 
     /** Returns true if there are threads actively running in serviceQueue() */
-    bool AreThreadsServicingQueue() const EXCLUSIVE_LOCKS_REQUIRED(!newTaskMutex);
+    bool AreThreadsServicingQueue() const;
 
 private:
     mutable Mutex newTaskMutex;
@@ -129,8 +128,8 @@ private:
     std::list<std::function<void()>> m_callbacks_pending GUARDED_BY(m_callbacks_mutex);
     bool m_are_callbacks_running GUARDED_BY(m_callbacks_mutex) = false;
 
-    void MaybeScheduleProcessQueue() EXCLUSIVE_LOCKS_REQUIRED(!m_callbacks_mutex);
-    void ProcessQueue() EXCLUSIVE_LOCKS_REQUIRED(!m_callbacks_mutex);
+    void MaybeScheduleProcessQueue();
+    void ProcessQueue();
 
 public:
     explicit SingleThreadedSchedulerClient(CScheduler& scheduler LIFETIMEBOUND) : m_scheduler{scheduler} {}
@@ -141,15 +140,15 @@ public:
      * Practically, this means that callbacks can behave as if they are executed
      * in order by a single thread.
      */
-    void AddToProcessQueue(std::function<void()> func) EXCLUSIVE_LOCKS_REQUIRED(!m_callbacks_mutex);
+    void AddToProcessQueue(std::function<void()> func);
 
     /**
      * Processes all remaining queue members on the calling thread, blocking until queue is empty
      * Must be called after the CScheduler has no remaining processing threads!
      */
-    void EmptyQueue() EXCLUSIVE_LOCKS_REQUIRED(!m_callbacks_mutex);
+    void EmptyQueue();
 
-    size_t CallbacksPending() EXCLUSIVE_LOCKS_REQUIRED(!m_callbacks_mutex);
+    size_t CallbacksPending();
 };
 
 #endif

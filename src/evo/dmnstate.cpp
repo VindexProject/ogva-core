@@ -28,7 +28,7 @@ std::string CDeterministicMNState::ToString() const
     return strprintf("CDeterministicMNState(nVersion=%d, nRegisteredHeight=%d, nLastPaidHeight=%d, nPoSePenalty=%d, nPoSeRevivedHeight=%d, nPoSeBanHeight=%d, nRevocationReason=%d, "
                      "ownerAddress=%s, pubKeyOperator=%s, votingAddress=%s, addr=%s, payoutAddress=%s, operatorPayoutAddress=%s)",
                      nVersion, nRegisteredHeight, nLastPaidHeight, nPoSePenalty, nPoSeRevivedHeight, nPoSeBanHeight, nRevocationReason,
-                     EncodeDestination(PKHash(keyIDOwner)), pubKeyOperator.ToString(), EncodeDestination(PKHash(keyIDVoting)), addr.ToStringIPPort(), payoutAddress, operatorPayoutAddress);
+                     EncodeDestination(PKHash(keyIDOwner)), pubKeyOperator.ToString(), EncodeDestination(PKHash(keyIDVoting)), addr.ToStringIPPort(false), payoutAddress, operatorPayoutAddress);
 }
 
 UniValue CDeterministicMNState::ToJson(MnType nType) const
@@ -36,7 +36,7 @@ UniValue CDeterministicMNState::ToJson(MnType nType) const
     UniValue obj;
     obj.setObject();
     obj.pushKV("version", nVersion);
-    obj.pushKV("service", addr.ToStringIPPort());
+    obj.pushKV("service", addr.ToStringIPPort(false));
     obj.pushKV("registeredHeight", nRegisteredHeight);
     obj.pushKV("lastPaidHeight", nLastPaidHeight);
     obj.pushKV("consecutivePayments", nConsecutivePayments);
@@ -46,11 +46,12 @@ UniValue CDeterministicMNState::ToJson(MnType nType) const
     obj.pushKV("revocationReason", nRevocationReason);
     obj.pushKV("ownerAddress", EncodeDestination(PKHash(keyIDOwner)));
     obj.pushKV("votingAddress", EncodeDestination(PKHash(keyIDVoting)));
-    if (nType == MnType::Evo) {
-        obj.pushKV("platformNodeID", platformNodeID.ToString());
-        obj.pushKV("platformP2PPort", platformP2PPort);
-        obj.pushKV("platformHTTPPort", platformHTTPPort);
-    }
+    // Disable EvoNode data
+    // if (nType == MnType::Evo) {
+    //     obj.pushKV("platformNodeID", platformNodeID.ToString());
+    //     obj.pushKV("platformP2PPort", platformP2PPort);
+    //     obj.pushKV("platformHTTPPort", platformHTTPPort);
+    // }
 
     CTxDestination dest;
     if (ExtractDestination(scriptPayout, dest)) {
@@ -71,7 +72,7 @@ UniValue CDeterministicMNStateDiff::ToJson(MnType nType) const
         obj.pushKV("version", state.nVersion);
     }
     if (fields & Field_addr) {
-        obj.pushKV("service", state.addr.ToStringIPPort());
+        obj.pushKV("service", state.addr.ToStringIPPort(false));
     }
     if (fields & Field_nRegisteredHeight) {
         obj.pushKV("registeredHeight", state.nRegisteredHeight);
@@ -115,16 +116,17 @@ UniValue CDeterministicMNStateDiff::ToJson(MnType nType) const
     if (fields & Field_pubKeyOperator) {
         obj.pushKV("pubKeyOperator", state.pubKeyOperator.ToString());
     }
-    if (nType == MnType::Evo) {
-        if (fields & Field_platformNodeID) {
-            obj.pushKV("platformNodeID", state.platformNodeID.ToString());
-        }
-        if (fields & Field_platformP2PPort) {
-            obj.pushKV("platformP2PPort", state.platformP2PPort);
-        }
-        if (fields & Field_platformHTTPPort) {
-            obj.pushKV("platformHTTPPort", state.platformHTTPPort);
-        }
-    }
+    // Disable Evonode data
+    // if (nType == MnType::Evo) {
+    //     if (fields & Field_platformNodeID) {
+    //         obj.pushKV("platformNodeID", state.platformNodeID.ToString());
+    //     }
+    //     if (fields & Field_platformP2PPort) {
+    //         obj.pushKV("platformP2PPort", state.platformP2PPort);
+    //     }
+    //     if (fields & Field_platformHTTPPort) {
+    //         obj.pushKV("platformHTTPPort", state.platformHTTPPort);
+    //     }
+    // }
     return obj;
 }

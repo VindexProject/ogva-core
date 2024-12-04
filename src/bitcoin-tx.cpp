@@ -13,7 +13,6 @@
 #include <consensus/consensus.h>
 #include <core_io.h>
 #include <key_io.h>
-#include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <script/sign.h>
@@ -104,11 +103,11 @@ static int AppInitRawTx(int argc, char* argv[])
 
     if (argc < 2 || HelpRequested(gArgs) || gArgs.IsArgSet("-version")) {
         // First part of help message is specific to this utility
-        std::string strUsage = PACKAGE_NAME " dash-tx utility version " + FormatFullVersion() + "\n";
+        std::string strUsage = PACKAGE_NAME " ogva-tx utility version " + FormatFullVersion() + "\n";
         if (!gArgs.IsArgSet("-version")) {
             strUsage += "\n"
-                "Usage:  dash-tx [options] <hex-tx> [commands]  Update hex-encoded dash transaction\n"
-                "or:     dash-tx [options] -create [commands]   Create hex-encoded dash transaction\n"
+                "Usage:  ogva-tx [options] <hex-tx> [commands]  Update hex-encoded ogva transaction\n"
+                "or:     ogva-tx [options] -create [commands]   Create hex-encoded ogva transaction\n"
                 "\n";
             strUsage += gArgs.GetHelpMessage();
         }
@@ -203,9 +202,8 @@ static CAmount ExtractAndValidateValue(const std::string& strValue)
 static void MutateTxVersion(CMutableTransaction& tx, const std::string& cmdVal)
 {
     int64_t newVersion;
-    if (!ParseInt64(cmdVal, &newVersion) || newVersion < 1 || newVersion > TX_MAX_STANDARD_VERSION) {
+    if (!ParseInt64(cmdVal, &newVersion) || newVersion < 1 || newVersion > CTransaction::MAX_STANDARD_VERSION)
         throw std::runtime_error("Invalid TX version requested: '" + cmdVal + "'");
-    }
 
     tx.nVersion = (int) newVersion;
 }
@@ -676,7 +674,7 @@ static void MutateTx(CMutableTransaction& tx, const std::string& command,
 static void OutputTxJSON(const CTransaction& tx)
 {
     UniValue entry(UniValue::VOBJ);
-    TxToUniv(tx, uint256(), /* include_addresses */ false, entry);
+    TxToUniv(tx, uint256(), entry);
 
     std::string jsonOutput = entry.write(4);
     tfm::format(std::cout, "%s\n", jsonOutput);
@@ -744,7 +742,7 @@ static int CommandLineRawTx(int argc, char* argv[])
             if (argc < 2)
                 throw std::runtime_error("too few parameters");
 
-            // param: hex-encoded dash transaction
+            // param: hex-encoded ogva transaction
             std::string strHexTx(argv[1]);
             if (strHexTx == "-")                 // "-" implies standard input
                 strHexTx = readStdin();

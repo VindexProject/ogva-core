@@ -40,43 +40,43 @@ BITCOIN_INCLUDES=-I$(builddir) -I$(srcdir)/secp256k1/include -I$(srcdir)/$(UNIVA
 BITCOIN_INCLUDES+=-I$(srcdir)/dashbls/include -I$(srcdir)/dashbls/depends/relic/include -I$(srcdir)/dashbls/depends/minialloc/include
 BITCOIN_INCLUDES+=-I$(srcdir)/immer
 
-LIBBITCOIN_SERVER=libbitcoin_server.a
-LIBBITCOIN_COMMON=libbitcoin_common.a
-LIBBITCOIN_CONSENSUS=libbitcoin_consensus.a
-LIBBITCOIN_CLI=libbitcoin_cli.a
-LIBBITCOIN_UTIL=libbitcoin_util.a
-LIBBITCOIN_CRYPTO_BASE=crypto/libbitcoin_crypto_base.a
-LIBBITCOINQT=qt/libbitcoinqt.a
+LIBOGVA_SERVER=libogva_server.a
+LIBOGVA_COMMON=libogva_common.a
+LIBOGVA_CONSENSUS=libogva_consensus.a
+LIBOGVA_CLI=libogva_cli.a
+LIBOGVA_UTIL=libogva_util.a
+LIBOGVA_CRYPTO_BASE=crypto/libogva_crypto_base.a
+LIBOGVAQT=qt/libogvaqt.a
 LIBDASHBLS=dashbls/libdashbls.la
 LIBSECP256K1=secp256k1/libsecp256k1.la
 
 if ENABLE_ZMQ
-LIBBITCOIN_ZMQ=libbitcoin_zmq.a
+LIBOGVA_ZMQ=libogva_zmq.a
 endif
 if BUILD_BITCOIN_LIBS
-LIBBITCOINCONSENSUS=libdashconsensus.la
+LIBOGVACONSENSUS=libogvaconsensus.la
 endif
 if ENABLE_WALLET
-LIBBITCOIN_WALLET=libbitcoin_wallet.a
-LIBBITCOIN_WALLET_TOOL=libbitcoin_wallet_tool.a
+LIBOGVA_WALLET=libogva_wallet.a
+LIBOGVA_WALLET_TOOL=libogva_wallet_tool.a
 endif
 
-LIBBITCOIN_CRYPTO= $(LIBBITCOIN_CRYPTO_BASE)
+LIBOGVA_CRYPTO= $(LIBOGVA_CRYPTO_BASE)
 if ENABLE_SSE41
-LIBBITCOIN_CRYPTO_SSE41 = crypto/libbitcoin_crypto_sse41.a
-LIBBITCOIN_CRYPTO += $(LIBBITCOIN_CRYPTO_SSE41)
+LIBOGVA_CRYPTO_SSE41 = crypto/libogva_crypto_sse41.a
+LIBOGVA_CRYPTO += $(LIBOGVA_CRYPTO_SSE41)
 endif
 if ENABLE_AVX2
-LIBBITCOIN_CRYPTO_AVX2 = crypto/libbitcoin_crypto_avx2.a
-LIBBITCOIN_CRYPTO += $(LIBBITCOIN_CRYPTO_AVX2)
+LIBOGVA_CRYPTO_AVX2 = crypto/libogva_crypto_avx2.a
+LIBOGVA_CRYPTO += $(LIBOGVA_CRYPTO_AVX2)
 endif
 if ENABLE_X86_SHANI
-LIBBITCOIN_CRYPTO_X86_SHANI = crypto/libbitcoin_crypto_x86_shani.a
-LIBBITCOIN_CRYPTO += $(LIBBITCOIN_CRYPTO_X86_SHANI)
+LIBOGVA_CRYPTO_X86_SHANI = crypto/libogva_crypto_x86_shani.a
+LIBOGVA_CRYPTO += $(LIBOGVA_CRYPTO_X86_SHANI)
 endif
 if ENABLE_ARM_SHANI
-LIBBITCOIN_CRYPTO_ARM_SHANI = crypto/libbitcoin_crypto_arm_shani.a
-LIBBITCOIN_CRYPTO += $(LIBBITCOIN_CRYPTO_ARM_SHANI)
+LIBOGVA_CRYPTO_ARM_SHANI = crypto/libogva_crypto_arm_shani.a
+LIBOGVA_CRYPTO += $(LIBOGVA_CRYPTO_ARM_SHANI)
 endif
 
 $(LIBDASHBLS):
@@ -88,17 +88,17 @@ $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(w
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
 EXTRA_LIBRARIES += \
-  $(LIBBITCOIN_CRYPTO) \
-  $(LIBBITCOIN_UTIL) \
-  $(LIBBITCOIN_COMMON) \
-  $(LIBBITCOIN_CONSENSUS) \
-  $(LIBBITCOIN_SERVER) \
-  $(LIBBITCOIN_CLI) \
-  $(LIBBITCOIN_WALLET) \
-  $(LIBBITCOIN_WALLET_TOOL) \
-  $(LIBBITCOIN_ZMQ)
+  $(LIBOGVA_CRYPTO) \
+  $(LIBOGVA_UTIL) \
+  $(LIBOGVA_COMMON) \
+  $(LIBOGVA_CONSENSUS) \
+  $(LIBOGVA_SERVER) \
+  $(LIBOGVA_CLI) \
+  $(LIBOGVA_WALLET) \
+  $(LIBOGVA_WALLET_TOOL) \
+  $(LIBOGVA_ZMQ)
 
-lib_LTLIBRARIES = $(LIBBITCOINCONSENSUS)
+lib_LTLIBRARIES = $(LIBOGVACONSENSUS)
 noinst_LTLIBRARIES =
 
 bin_PROGRAMS =
@@ -107,39 +107,39 @@ TESTS =
 BENCHMARKS =
 
 if BUILD_BITCOIND
-  bin_PROGRAMS += dashd
+  bin_PROGRAMS += ogvad
 endif
 
 if BUILD_BITCOIN_NODE
-  bin_PROGRAMS += dash-node
+  bin_PROGRAMS += ogva-node
 endif
 
 if BUILD_BITCOIN_CLI
-  bin_PROGRAMS += dash-cli
+  bin_PROGRAMS += ogva-cli
 endif
 if BUILD_BITCOIN_TX
-  bin_PROGRAMS += dash-tx
+  bin_PROGRAMS += ogva-tx
 endif
 if ENABLE_WALLET
 if BUILD_BITCOIN_WALLET
-  bin_PROGRAMS += dash-wallet
+  bin_PROGRAMS += ogva-wallet
 endif
 endif
 
 .PHONY: FORCE check-symbols check-security
-# dash core #
+# ogva core #
 BITCOIN_CORE_H = \
   addrdb.h \
   addressindex.h \
   spentindex.h \
   addrman.h \
-  addrman_impl.h \
   attributes.h \
   banman.h \
   base58.h \
   batchedlogger.h \
   bech32.h \
-  bip324.h \
+  bip39.h \
+  bip39_english.h \
   blockencodings.h \
   bloom.h \
   cachemap.h \
@@ -181,7 +181,6 @@ BITCOIN_CORE_H = \
   evo/assetlocktx.h \
   evo/dmn_types.h \
   evo/cbtx.h \
-  evo/chainhelper.h \
   evo/creditpool.h \
   evo/deterministicmns.h \
   evo/dmnstate.h \
@@ -204,6 +203,7 @@ BITCOIN_CORE_H = \
   gsl/assert.h \
   gsl/pointers.h \
   flat-database.h \
+  hdchain.h \
   flatfile.h \
   fs.h \
   httprpc.h \
@@ -286,14 +286,12 @@ BITCOIN_CORE_H = \
   reverse_iterator.h \
   rpc/blockchain.h \
   rpc/client.h \
-  rpc/index_util.h \
   rpc/mining.h \
   rpc/protocol.h \
   rpc/rawtransaction_util.h \
   rpc/register.h \
   rpc/request.h \
   rpc/server.h \
-  rpc/server_util.h \
   rpc/util.h \
   saltedhasher.h \
   scheduler.h \
@@ -329,7 +327,6 @@ BITCOIN_CORE_H = \
   util/bip32.h \
   util/bytevectorhash.h \
   util/check.h \
-  util/edge.h \
   util/enumerate.h \
   util/epochguard.h \
   util/error.h \
@@ -359,28 +356,21 @@ BITCOIN_CORE_H = \
   util/time.h \
   util/thread.h \
   util/threadnames.h \
-  util/tokenpipe.h \
   util/trace.h \
   util/translation.h \
-  util/types.h \
   util/ui_change_type.h \
   util/url.h \
   util/vector.h \
-  util/wpipe.h \
   validation.h \
   validationinterface.h \
   versionbits.h \
   wallet/bdb.h \
-  wallet/bip39.h \
-  wallet/bip39_english.h \
   wallet/coincontrol.h \
   wallet/coinselection.h \
   wallet/context.h \
   wallet/crypter.h \
   wallet/db.h \
-  wallet/dump.h \
   wallet/fees.h \
-  wallet/hdchain.h \
   wallet/ismine.h \
   wallet/load.h \
   wallet/rpcwallet.h \
@@ -404,21 +394,20 @@ obj/build.h: FORCE
 	@$(MKDIR_P) $(builddir)/obj
 	@$(top_srcdir)/share/genbuild.sh "$(abs_top_builddir)/src/obj/build.h" \
 	  "$(abs_top_srcdir)"
-libbitcoin_util_a-clientversion.$(OBJEXT): obj/build.h
+libogva_util_a-clientversion.$(OBJEXT): obj/build.h
 
-# server: shared between dashd and dash-qt
+# server: shared between ogvad and ogva-qt
 # Contains code accessing mempool and chain state that is meant to be separated
 # from wallet and gui code (see node/README.md). Shared code should go in
-# libbitcoin_common or libbitcoin_util libraries, instead.
-libbitcoin_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(NATPMP_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS)
-libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_server_a_SOURCES = \
+# libogva_common or libogva_util libraries, instead.
+libogva_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(NATPMP_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS)
+libogva_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libogva_server_a_SOURCES = \
   addrdb.cpp \
   addressindex.cpp \
   addrman.cpp \
   banman.cpp \
   batchedlogger.cpp \
-  bip324.cpp \
   blockencodings.cpp \
   blockfilter.cpp \
   chain.cpp \
@@ -432,7 +421,6 @@ libbitcoin_server_a_SOURCES = \
   evo/assetlocktx.cpp \
   evo/cbtx.cpp \
   evo/creditpool.cpp \
-  evo/chainhelper.cpp \
   evo/deterministicmns.cpp \
   evo/dmnstate.cpp \
   evo/evodb.cpp \
@@ -481,6 +469,7 @@ libbitcoin_server_a_SOURCES = \
   masternode/payments.cpp \
   masternode/sync.cpp \
   masternode/utils.cpp \
+  messagesigner.cpp \
   miner.cpp \
   net.cpp \
   netfulfilledman.cpp \
@@ -503,7 +492,6 @@ libbitcoin_server_a_SOURCES = \
   rpc/blockchain.cpp \
   rpc/coinjoin.cpp \
   rpc/evo.cpp \
-  rpc/index_util.cpp \
   rpc/masternode.cpp \
   rpc/governance.cpp \
   rpc/mining.cpp \
@@ -512,7 +500,6 @@ libbitcoin_server_a_SOURCES = \
   rpc/quorums.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
-  rpc/server_util.cpp \
   script/sigcache.cpp \
   shutdown.cpp \
   spork.cpp \
@@ -527,16 +514,16 @@ libbitcoin_server_a_SOURCES = \
   $(BITCOIN_CORE_H)
 
 if ENABLE_WALLET
-libbitcoin_server_a_SOURCES += wallet/init.cpp
+libogva_server_a_SOURCES += wallet/init.cpp
 endif
 if !ENABLE_WALLET
-libbitcoin_server_a_SOURCES += dummywallet.cpp
+libogva_server_a_SOURCES += dummywallet.cpp
 endif
 
 if ENABLE_ZMQ
-libbitcoin_zmq_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(ZMQ_CFLAGS)
-libbitcoin_zmq_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_zmq_a_SOURCES = \
+libogva_zmq_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(ZMQ_CFLAGS)
+libogva_zmq_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libogva_zmq_a_SOURCES = \
   zmq/zmqabstractnotifier.cpp \
   zmq/zmqnotificationinterface.cpp \
   zmq/zmqpublishnotifier.cpp \
@@ -545,22 +532,20 @@ libbitcoin_zmq_a_SOURCES = \
 endif
 
 
-# wallet: shared between dashd and dash-qt, but only linked
+# wallet: shared between ogvad and ogva-qt, but only linked
 # when wallet enabled
-libbitcoin_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(SQLITE_CFLAGS)
-libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_wallet_a_SOURCES = \
+libogva_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(SQLITE_CFLAGS)
+libogva_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libogva_wallet_a_SOURCES = \
   coinjoin/client.cpp \
   coinjoin/interfaces.cpp \
   coinjoin/util.cpp \
-  wallet/bip39.cpp \
+  hdchain.cpp \
   wallet/coincontrol.cpp \
   wallet/context.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \
-  wallet/dump.cpp \
   wallet/fees.cpp \
-  wallet/hdchain.cpp \
   wallet/interfaces.cpp \
   wallet/load.cpp \
   wallet/rpcdump.cpp \
@@ -573,28 +558,28 @@ libbitcoin_wallet_a_SOURCES = \
   $(BITCOIN_CORE_H)
 
 if USE_SQLITE
-libbitcoin_wallet_a_SOURCES += wallet/sqlite.cpp
+libogva_wallet_a_SOURCES += wallet/sqlite.cpp
 endif
 if USE_BDB
-libbitcoin_wallet_a_SOURCES += wallet/bdb.cpp wallet/salvage.cpp
+libogva_wallet_a_SOURCES += wallet/bdb.cpp wallet/salvage.cpp
 endif
 
-libbitcoin_wallet_tool_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-libbitcoin_wallet_tool_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_wallet_tool_a_SOURCES = \
+libogva_wallet_tool_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+libogva_wallet_tool_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libogva_wallet_tool_a_SOURCES = \
   wallet/wallettool.cpp \
   $(BITCOIN_CORE_H)
 
 # crypto primitives library
-crypto_libbitcoin_crypto_base_a_CPPFLAGS = $(AM_CPPFLAGS) $(PIC_FLAGS)
-crypto_libbitcoin_crypto_base_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(PIC_FLAGS)
-crypto_libbitcoin_crypto_base_a_SOURCES = \
+crypto_libogva_crypto_base_a_CPPFLAGS = $(AM_CPPFLAGS) $(PIC_FLAGS)
+crypto_libogva_crypto_base_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(PIC_FLAGS)
+crypto_libogva_crypto_base_a_SOURCES = \
   crypto/aes.cpp \
   crypto/aes.h \
+  crypto/chacha_poly_aead.h \
+  crypto/chacha_poly_aead.cpp \
   crypto/chacha20.h \
   crypto/chacha20.cpp \
-  crypto/chacha20poly1305.h \
-  crypto/chacha20poly1305.cpp \
   crypto/common.h \
   crypto/hkdf_sha256_32.cpp \
   crypto/hkdf_sha256_32.h \
@@ -623,23 +608,29 @@ crypto_libbitcoin_crypto_base_a_SOURCES = \
   crypto/siphash.h
 
 if USE_ASM
-crypto_libbitcoin_crypto_base_a_SOURCES += crypto/sha256_sse4.cpp
+crypto_libogva_crypto_base_a_SOURCES += crypto/sha256_sse4.cpp
 endif
 
-crypto_libbitcoin_crypto_sse41_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-crypto_libbitcoin_crypto_sse41_a_CPPFLAGS = $(AM_CPPFLAGS)
-crypto_libbitcoin_crypto_sse41_a_CXXFLAGS += $(SSE41_CXXFLAGS)
-crypto_libbitcoin_crypto_sse41_a_CPPFLAGS += -DENABLE_SSE41
-crypto_libbitcoin_crypto_sse41_a_SOURCES = crypto/sha256_sse41.cpp
+crypto_libogva_crypto_sse41_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+crypto_libogva_crypto_sse41_a_CPPFLAGS = $(AM_CPPFLAGS)
+crypto_libogva_crypto_sse41_a_CXXFLAGS += $(SSE41_CXXFLAGS)
+crypto_libogva_crypto_sse41_a_CPPFLAGS += -DENABLE_SSE41
+crypto_libogva_crypto_sse41_a_SOURCES = crypto/sha256_sse41.cpp
 
-crypto_libbitcoin_crypto_avx2_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-crypto_libbitcoin_crypto_avx2_a_CPPFLAGS = $(AM_CPPFLAGS)
-crypto_libbitcoin_crypto_avx2_a_CXXFLAGS += $(AVX2_CXXFLAGS)
-crypto_libbitcoin_crypto_avx2_a_CPPFLAGS += -DENABLE_AVX2
-crypto_libbitcoin_crypto_avx2_a_SOURCES = crypto/sha256_avx2.cpp
+crypto_libogva_crypto_avx2_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+crypto_libogva_crypto_avx2_a_CPPFLAGS = $(AM_CPPFLAGS)
+crypto_libogva_crypto_avx2_a_CXXFLAGS += $(AVX2_CXXFLAGS)
+crypto_libogva_crypto_avx2_a_CPPFLAGS += -DENABLE_AVX2
+crypto_libogva_crypto_avx2_a_SOURCES = crypto/sha256_avx2.cpp
+
+# neoscrypt
+crypto_libogva_crypto_base_a_SOURCES += \
+  crypto/neoscrypt.c \
+  crypto/neoscrypt.h
+
 
 # x11
-crypto_libbitcoin_crypto_base_a_SOURCES += \
+crypto_libogva_crypto_base_a_SOURCES += \
   crypto/blake.c \
   crypto/bmw.c \
   crypto/cubehash.c \
@@ -664,22 +655,22 @@ crypto_libbitcoin_crypto_base_a_SOURCES += \
   crypto/sph_skein.h \
   crypto/sph_types.h
 
-crypto_libbitcoin_crypto_x86_shani_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-crypto_libbitcoin_crypto_x86_shani_a_CPPFLAGS = $(AM_CPPFLAGS)
-crypto_libbitcoin_crypto_x86_shani_a_CXXFLAGS += $(X86_SHANI_CXXFLAGS)
-crypto_libbitcoin_crypto_x86_shani_a_CPPFLAGS += -DENABLE_X86_SHANI
-crypto_libbitcoin_crypto_x86_shani_a_SOURCES = crypto/sha256_x86_shani.cpp
+crypto_libogva_crypto_x86_shani_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+crypto_libogva_crypto_x86_shani_a_CPPFLAGS = $(AM_CPPFLAGS)
+crypto_libogva_crypto_x86_shani_a_CXXFLAGS += $(X86_SHANI_CXXFLAGS)
+crypto_libogva_crypto_x86_shani_a_CPPFLAGS += -DENABLE_X86_SHANI
+crypto_libogva_crypto_x86_shani_a_SOURCES = crypto/sha256_x86_shani.cpp
 
-crypto_libbitcoin_crypto_arm_shani_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-crypto_libbitcoin_crypto_arm_shani_a_CPPFLAGS = $(AM_CPPFLAGS)
-crypto_libbitcoin_crypto_arm_shani_a_CXXFLAGS += $(ARM_SHANI_CXXFLAGS)
-crypto_libbitcoin_crypto_arm_shani_a_CPPFLAGS += -DENABLE_ARM_SHANI
-crypto_libbitcoin_crypto_arm_shani_a_SOURCES = crypto/sha256_arm_shani.cpp
+crypto_libogva_crypto_arm_shani_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+crypto_libogva_crypto_arm_shani_a_CPPFLAGS = $(AM_CPPFLAGS)
+crypto_libogva_crypto_arm_shani_a_CXXFLAGS += $(ARM_SHANI_CXXFLAGS)
+crypto_libogva_crypto_arm_shani_a_CPPFLAGS += -DENABLE_ARM_SHANI
+crypto_libogva_crypto_arm_shani_a_SOURCES = crypto/sha256_arm_shani.cpp
 
 # consensus: shared between all executables that validate any consensus rules.
-libbitcoin_consensus_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-libbitcoin_consensus_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_consensus_a_SOURCES = \
+libogva_consensus_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+libogva_consensus_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libogva_consensus_a_SOURCES = \
   amount.h \
   arith_uint256.cpp \
   arith_uint256.h \
@@ -690,6 +681,7 @@ libbitcoin_consensus_a_SOURCES = \
   consensus/params.h \
   consensus/tx_check.cpp \
   consensus/validation.h \
+  devfee_payment.h \
   hash.cpp \
   hash.h \
   prevector.h \
@@ -717,12 +709,13 @@ libbitcoin_consensus_a_SOURCES = \
   util/string.cpp \
   version.h
 
-# common: shared between dashd, and dash-qt and non-server tools
-libbitcoin_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_common_a_SOURCES = \
+# common: shared between ogvad, and ogva-qt and non-server tools
+libogva_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+libogva_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libogva_common_a_SOURCES = \
   base58.cpp \
   bech32.cpp \
+  bip39.cpp \
   bloom.cpp \
   chainparams.cpp \
   coins.cpp \
@@ -730,11 +723,12 @@ libbitcoin_common_a_SOURCES = \
   core_read.cpp \
   core_write.cpp \
   deploymentinfo.cpp \
+  devfee_payment.cpp \
+  devfee_payment.h \
   governance/common.cpp \
   key.cpp \
   key_io.cpp \
   merkleblock.cpp \
-  net_types.cpp \
   netaddress.cpp \
   netbase.cpp \
   net_permissions.cpp \
@@ -755,9 +749,9 @@ libbitcoin_common_a_SOURCES = \
   $(BITCOIN_CORE_H)
 
 # util: shared between all executables.
-libbitcoin_util_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-libbitcoin_util_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_util_a_SOURCES = \
+libogva_util_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+libogva_util_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libogva_util_a_SOURCES = \
   bls/bls_batchverifier.h \
   bls/bls_ies.cpp \
   bls/bls_ies.h \
@@ -772,7 +766,6 @@ libbitcoin_util_a_SOURCES = \
   fs.cpp \
   interfaces/handler.cpp \
   logging.cpp \
-  messagesigner.cpp \
   random.cpp \
   randomenv.cpp \
   rpc/request.cpp \
@@ -784,7 +777,6 @@ libbitcoin_util_a_SOURCES = \
   util/bip32.cpp \
   util/bytevectorhash.cpp \
   util/check.cpp \
-  util/edge.cpp \
   util/error.cpp \
   util/fees.cpp \
   util/hasher.cpp \
@@ -803,44 +795,42 @@ libbitcoin_util_a_SOURCES = \
   util/string.cpp \
   util/thread.cpp \
   util/threadnames.cpp \
-  util/tokenpipe.cpp \
-  util/wpipe.cpp \
   $(BITCOIN_CORE_H)
 
 if USE_LIBEVENT
-libbitcoin_util_a_SOURCES += util/url.cpp
+libogva_util_a_SOURCES += util/url.cpp
 endif
 
-# cli: shared between dash-cli and dash-qt
-libbitcoin_cli_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-libbitcoin_cli_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_cli_a_SOURCES = \
+# cli: shared between ogva-cli and ogva-qt
+libogva_cli_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+libogva_cli_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libogva_cli_a_SOURCES = \
   compat/stdin.h \
   compat/stdin.cpp \
   rpc/client.cpp \
   $(BITCOIN_CORE_H)
 
-nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
+nodist_libogva_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
-# dashd & dash-node binaries #
+# ogvad & ogva-node binaries #
 bitcoin_daemon_sources = bitcoind.cpp
 bitcoin_bin_cppflags = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 bitcoin_bin_cxxflags = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bitcoin_bin_ldflags = $(LDFLAGS_WRAP_EXCEPTIONS) $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 
 if TARGET_WINDOWS
-bitcoin_daemon_sources += dashd-res.rc
+bitcoin_daemon_sources += ogvad-res.rc
 endif
 
 bitcoin_bin_ldadd = \
-  $(LIBBITCOIN_WALLET) \
-  $(LIBBITCOIN_COMMON) \
-  $(LIBBITCOIN_UTIL) \
+  $(LIBOGVA_WALLET) \
+  $(LIBOGVA_COMMON) \
+  $(LIBOGVA_UTIL) \
   $(LIBUNIVALUE) \
-  $(LIBBITCOIN_ZMQ) \
-  $(LIBBITCOIN_CONSENSUS) \
-  $(LIBBITCOIN_CRYPTO) \
+  $(LIBOGVA_ZMQ) \
+  $(LIBOGVA_CONSENSUS) \
+  $(LIBOGVA_CRYPTO) \
   $(LIBDASHBLS) \
   $(LIBLEVELDB) \
   $(LIBLEVELDB_SSE42) \
@@ -849,81 +839,81 @@ bitcoin_bin_ldadd = \
 
 bitcoin_bin_ldadd += $(BACKTRACE_LIB) $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(NATPMP_LIBS) $(SQLITE_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(GMP_LIBS)
 
-dashd_SOURCES = $(bitcoin_daemon_sources)
-dashd_CPPFLAGS = $(bitcoin_bin_cppflags)
-dashd_CXXFLAGS = $(bitcoin_bin_cxxflags)
-dashd_LDFLAGS = $(bitcoin_bin_ldflags)
-dashd_LDADD = $(LIBBITCOIN_SERVER) $(bitcoin_bin_ldadd)
+ogvad_SOURCES = $(bitcoin_daemon_sources)
+ogvad_CPPFLAGS = $(bitcoin_bin_cppflags)
+ogvad_CXXFLAGS = $(bitcoin_bin_cxxflags)
+ogvad_LDFLAGS = $(bitcoin_bin_ldflags)
+ogvad_LDADD = $(LIBOGVA_SERVER) $(bitcoin_bin_ldadd)
 
-dash_node_SOURCES = $(bitcoin_daemon_sources)
-dash_node_CPPFLAGS = $(bitcoin_bin_cppflags)
-dash_node_CXXFLAGS = $(bitcoin_bin_cxxflags)
-dash_node_LDFLAGS = $(bitcoin_bin_ldflags)
-dash_node_LDADD = $(LIBBITCOIN_SERVER) $(bitcoin_bin_ldadd)
+ogva_node_SOURCES = $(bitcoin_daemon_sources)
+ogva_node_CPPFLAGS = $(bitcoin_bin_cppflags)
+ogva_node_CXXFLAGS = $(bitcoin_bin_cxxflags)
+ogva_node_LDFLAGS = $(bitcoin_bin_ldflags)
+ogva_node_LDADD = $(LIBOGVA_SERVER) $(bitcoin_bin_ldadd)
 
-# dash-cli binary #
-dash_cli_SOURCES = bitcoin-cli.cpp
-dash_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
-dash_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-dash_cli_LDFLAGS = $(LDFLAGS_WRAP_EXCEPTIONS) $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
+# ogva-cli binary #
+ogva_cli_SOURCES = bitcoin-cli.cpp
+ogva_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
+ogva_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+ogva_cli_LDFLAGS = $(LDFLAGS_WRAP_EXCEPTIONS) $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 
 if TARGET_WINDOWS
-dash_cli_SOURCES += dash-cli-res.rc
+ogva_cli_SOURCES += ogva-cli-res.rc
 endif
 
-dash_cli_LDADD = \
-  $(LIBBITCOIN_CLI) \
+ogva_cli_LDADD = \
+  $(LIBOGVA_CLI) \
   $(LIBUNIVALUE) \
-  $(LIBBITCOIN_UTIL) \
-  $(LIBBITCOIN_CRYPTO)
-dash_cli_LDADD += $(BACKTRACE_LIB) $(BOOST_LIBS) $(EVENT_LIBS) $(GMP_LIBS)
+  $(LIBOGVA_UTIL) \
+  $(LIBOGVA_CRYPTO)
+ogva_cli_LDADD += $(BACKTRACE_LIB) $(BOOST_LIBS) $(EVENT_LIBS) $(GMP_LIBS)
 #
 
-# dash-tx binary #
-dash_tx_SOURCES = bitcoin-tx.cpp
-dash_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-dash_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-dash_tx_LDFLAGS = $(LDFLAGS_WRAP_EXCEPTIONS) $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
+# ogva-tx binary #
+ogva_tx_SOURCES = bitcoin-tx.cpp
+ogva_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+ogva_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+ogva_tx_LDFLAGS = $(LDFLAGS_WRAP_EXCEPTIONS) $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 
 if TARGET_WINDOWS
-dash_tx_SOURCES += dash-tx-res.rc
+ogva_tx_SOURCES += ogva-tx-res.rc
 endif
 
-dash_tx_LDADD = \
+ogva_tx_LDADD = \
   $(LIBUNIVALUE) \
-  $(LIBBITCOIN_COMMON) \
-  $(LIBBITCOIN_UTIL) \
-  $(LIBBITCOIN_CONSENSUS) \
-  $(LIBBITCOIN_CRYPTO) \
+  $(LIBOGVA_COMMON) \
+  $(LIBOGVA_UTIL) \
+  $(LIBOGVA_CONSENSUS) \
+  $(LIBOGVA_CRYPTO) \
   $(LIBDASHBLS) \
   $(LIBSECP256K1)
 
-dash_tx_LDADD += $(BACKTRACE_LIB) $(BOOST_LIBS) $(GMP_LIBS)
+ogva_tx_LDADD += $(BACKTRACE_LIB) $(BOOST_LIBS) $(GMP_LIBS)
 #
 
-# dash-wallet binary #
-dash_wallet_SOURCES = bitcoin-wallet.cpp
-dash_wallet_CPPFLAGS = $(bitcoin_bin_cppflags)
-dash_wallet_CXXFLAGS = $(bitcoin_bin_cxxflags)
-dash_wallet_LDFLAGS = $(bitcoin_bin_ldflags)
-dash_wallet_LDADD = $(LIBBITCOIN_WALLET_TOOL) $(bitcoin_bin_ldadd)
+# ogva-wallet binary #
+ogva_wallet_SOURCES = bitcoin-wallet.cpp
+ogva_wallet_CPPFLAGS = $(bitcoin_bin_cppflags)
+ogva_wallet_CXXFLAGS = $(bitcoin_bin_cxxflags)
+ogva_wallet_LDFLAGS = $(bitcoin_bin_ldflags)
+ogva_wallet_LDADD = $(LIBOGVA_WALLET_TOOL) $(bitcoin_bin_ldadd)
 
 if TARGET_WINDOWS
-dash_wallet_SOURCES += dash-wallet-res.rc
+ogva_wallet_SOURCES += ogva-wallet-res.rc
 endif
 #
 
-# dashconsensus library #
+# ogvaconsensus library #
 if BUILD_BITCOIN_LIBS
 include_HEADERS = script/bitcoinconsensus.h
-libdashconsensus_la_SOURCES = support/cleanse.cpp $(crypto_libbitcoin_crypto_base_a_SOURCES) $(libbitcoin_consensus_a_SOURCES)
+libogvaconsensus_la_SOURCES = support/cleanse.cpp $(crypto_libogva_crypto_base_a_SOURCES) $(libogva_consensus_a_SOURCES)
 
-libdashconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
-libdashconsensus_la_LIBADD = $(LIBDASHBLS) $(LIBSECP256K1) $(GMP_LIBS)
-libdashconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL
-libdashconsensus_la_CPPFLAGS += -I$(srcdir)/dashbls/include -I$(srcdir)/dashbls/depends/relic/include -I$(srcdir)/dashbls/depends/minialloc/include
-libdashconsensus_la_CPPFLAGS += -I$(srcdir)/immer
-libdashconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libogvaconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
+libogvaconsensus_la_LIBADD = $(LIBDASHBLS) $(LIBSECP256K1) $(GMP_LIBS)
+libogvaconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL
+libogvaconsensus_la_CPPFLAGS += -I$(srcdir)/dashbls/include -I$(srcdir)/dashbls/depends/relic/include -I$(srcdir)/dashbls/depends/minialloc/include
+libogvaconsensus_la_CPPFLAGS += -I$(srcdir)/immer
+libogvaconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 endif
 #

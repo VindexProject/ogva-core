@@ -4,7 +4,6 @@
 
 #include <addrdb.h>
 #include <addrman.h>
-#include <addrman_impl.h>
 #include <blockencodings.h>
 #include <blockfilter.h>
 #include <chain.h>
@@ -104,7 +103,7 @@ FUZZ_TARGET_DESERIALIZE(block_filter_deserialize, {
 })
 */
 FUZZ_TARGET_DESERIALIZE(addr_info_deserialize, {
-    AddrInfo addr_info;
+    CAddrInfo addr_info;
     DeserializeFromFuzzingInput(buffer, addr_info);
 })
 FUZZ_TARGET_DESERIALIZE(block_file_info_deserialize, {
@@ -190,12 +189,16 @@ FUZZ_TARGET_DESERIALIZE(blockmerkleroot, {
     BlockMerkleRoot(block, &mutated);
 })
 FUZZ_TARGET_DESERIALIZE(addrman_deserialize, {
-    AddrMan am(/* asmap */ std::vector<bool>(), /* deterministic */ false, /* consistency_check_ratio */ 0);
+    CAddrMan am;
     DeserializeFromFuzzingInput(buffer, am);
 })
 FUZZ_TARGET_DESERIALIZE(blockheader_deserialize, {
     CBlockHeader bh;
     DeserializeFromFuzzingInput(buffer, bh);
+})
+FUZZ_TARGET_DESERIALIZE(banentry_deserialize, {
+    CBanEntry be;
+    DeserializeFromFuzzingInput(buffer, be);
 })
 FUZZ_TARGET_DESERIALIZE(txundo_deserialize, {
     CTxUndo tu;
@@ -209,7 +212,7 @@ FUZZ_TARGET_DESERIALIZE(coins_deserialize, {
     Coin coin;
     DeserializeFromFuzzingInput(buffer, coin);
 })
-FUZZ_TARGET_DESERIALIZE(netaddr_deserialize, {
+FUZZ_TARGET_DESERIALIZE(net_address_deserialize, {
     CNetAddr na;
     DeserializeFromFuzzingInput(buffer, na);
     if (na.IsAddrV1Compatible()) {
@@ -217,7 +220,7 @@ FUZZ_TARGET_DESERIALIZE(netaddr_deserialize, {
     }
     AssertEqualAfterSerializeDeserialize(na, INIT_PROTO_VERSION | ADDRV2_FORMAT);
 })
-FUZZ_TARGET_DESERIALIZE(service_deserialize, {
+FUZZ_TARGET_DESERIALIZE(net_service_deserialize, {
     CService s;
     DeserializeFromFuzzingInput(buffer, s);
     if (s.IsAddrV1Compatible()) {

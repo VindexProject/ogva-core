@@ -1,15 +1,15 @@
 UNIX BUILD NOTES
 ====================
-Some notes on how to build Dash Core in Unix.
+Some notes on how to build Ogva Core in Unix.
 
 (For BSD specific instructions, see `build-*bsd.md` in this directory.)
 
 Note
 ---------------------
-Always use absolute paths to configure and compile Dash Core and the dependencies.
+Always use absolute paths to configure and compile Ogva Core and the dependencies.
 For example, when specifying the path of the dependency:
 
-    ../dist/configure --enable-cxx --disable-shared --with-pic --prefix=$BDB_PREFIX
+	../dist/configure --enable-cxx --disable-shared --with-pic --prefix=$BDB_PREFIX
 
 Here BDB_PREFIX must be an absolute path - it is defined using $(pwd) which ensures
 the usage of the absolute path.
@@ -24,7 +24,7 @@ make
 make install # optional
 ```
 
-This will build dash-qt as well, if the dependencies are met.
+This will build ogva-qt as well, if the dependencies are met.
 
 Dependencies
 ---------------------
@@ -43,7 +43,7 @@ Optional dependencies:
  gmp         | Optimized math routines | Arbitrary precision arithmetic library
  miniupnpc   | UPnP Support     | Firewall-jumping support
  libnatpmp   | NAT-PMP Support  | Firewall-jumping support
- libdb4.8    | Berkeley DB      | Optional, wallet storage (only needed when wallet enabled)
+ libdb4.8    | Berkeley DB      | Wallet storage (only needed when wallet enabled)
  qt          | GUI              | GUI toolkit (only needed when GUI enabled)
  libqrencode | QR codes in GUI  | Optional for generating QR codes (only needed when GUI enabled)
  libzmq3     | ZMQ notification | Optional, allows generating ZMQ notifications (requires ZMQ version >= 4.0.0)
@@ -55,7 +55,7 @@ Memory Requirements
 --------------------
 
 C++ compilers are memory-hungry. It is recommended to have at least 1.5 GB of
-memory available when compiling Dash Core. On systems with less, gcc can be
+memory available when compiling Ogva Core. On systems with less, gcc can be
 tuned to conserve memory with additional CXXFLAGS:
 
 
@@ -74,7 +74,7 @@ Build requirements:
 
 Now, you can either build from self-compiled [depends](/depends/README.md) or install the required dependencies:
 
-    sudo apt-get libevent-dev libboost-dev libboost-system-dev libboost-filesystem-dev libboost-test-dev
+    sudo apt-get libevent-dev libboost-system-dev libboost-filesystem-dev libboost-test-dev
 
 Berkeley DB is required for the wallet.
 
@@ -89,7 +89,7 @@ SQLite is required for the wallet:
 
     sudo apt install libsqlite3-dev
 
-To build Dash Core without wallet, see [*Disable-wallet mode*](#disable-wallet-mode)
+To build Ogva Core without wallet, see [*Disable-wallet mode*](#disable-wallet-mode)
 
 Optional port mapping libraries (see: `--with-miniupnpc` and `--with-natpmp`):
 
@@ -105,7 +105,7 @@ GMP dependencies (provides platform-optimized routines):
 
 GUI dependencies:
 
-If you want to build dash-qt, make sure that the required packages for Qt development
+If you want to build ogva-qt, make sure that the required packages for Qt development
 are installed. Qt 5 is necessary to build the GUI.
 To build without GUI pass `--without-gui`.
 
@@ -121,7 +121,7 @@ libqrencode (optional) can be installed with:
 
     sudo apt-get install libqrencode-dev
 
-Once these are installed, they will be found by configure and a dash-qt executable will be
+Once these are installed, they will be found by configure and a ogva-qt executable will be
 built by default.
 
 
@@ -152,7 +152,7 @@ SQLite is required for the wallet:
 
     sudo dnf install sqlite-devel
 
-To build Dash Core without wallet, see [*Disable-wallet mode*](#disable-wallet-mode)
+To build Ogva Core without wallet, see [*Disable-wallet mode*](#disable-wallet-mode)
 
 Optional port mapping libraries (see: `--with-miniupnpc` and `--with-natpmp`):
 
@@ -168,7 +168,7 @@ GMP dependencies (provides platform-optimized routines):
 
 GUI dependencies:
 
-If you want to build dash-qt, make sure that the required packages for Qt development
+If you want to build ogva-qt, make sure that the required packages for Qt development
 are installed. Qt 5 is necessary to build the GUI.
 To build without GUI pass `--without-gui`.
 
@@ -184,12 +184,12 @@ libqrencode (optional) can be installed with:
 
     sudo dnf install qrencode-devel
 
-Once these are installed, they will be found by configure and a dash-qt executable will be
+Once these are installed, they will be found by configure and a ogva-qt executable will be
 built by default.
 
 Notes
 -----
-The release is built with GCC and then "strip dashd" to strip the debug
+The release is built with GCC and then "strip ogvad" to strip the debug
 symbols, which reduces the executable size by about 90%.
 
 
@@ -219,7 +219,7 @@ like so:
 
 from the root of the repository.
 
-Otherwise, you can build Dash Core from self-compiled [depends](/depends/README.md).
+Otherwise, you can build Ogva Core from self-compiled [depends](/depends/README.md).
 
 **Note**: You only need Berkeley DB if the wallet is enabled (see [*Disable-wallet mode*](#disable-wallet-mode)).
 
@@ -227,21 +227,21 @@ Boost
 -----
 If you need to build Boost yourself:
 
-    sudo su
-    ./bootstrap.sh
-    ./bjam install
+	sudo su
+	./bootstrap.sh
+	./bjam install
 
 
 Security
 --------
-To help make your Dash Core installation more secure by making certain attacks impossible to
+To help make your Ogva Core installation more secure by making certain attacks impossible to
 exploit even if a vulnerability is found, binaries are hardened by default.
 This can be disabled with:
 
 Hardening Flags:
 
-    ./configure --enable-hardening
-    ./configure --disable-hardening
+	./configure --enable-hardening
+	./configure --disable-hardening
 
 
 Hardening enables the following features:
@@ -256,7 +256,7 @@ Hardening enables the following features:
 
     To test that you have built PIE executable, install scanelf, part of paxutils, and use:
 
-        scanelf -e ./dashd
+    	scanelf -e ./ogvad
 
     The output should contain:
 
@@ -264,23 +264,23 @@ Hardening enables the following features:
     ET_DYN
 
 * _Non-executable Stack_: If the stack is executable then trivial stack-based buffer overflow exploits are possible if
-    vulnerable buffers are found. By default, Dash Core should be built with a non-executable stack,
+    vulnerable buffers are found. By default, Ogva Core should be built with a non-executable stack,
     but if one of the libraries it uses asks for an executable stack or someone makes a mistake
     and uses a compiler extension which requires an executable stack, it will silently build an
     executable without the non-executable stack protection.
 
     To verify that the stack is non-executable after compiling use:
-    `scanelf -e ./dashd`
+    `scanelf -e ./ogvad`
 
     The output should contain:
-    STK/REL/PTL
-    RW- R-- RW-
+	STK/REL/PTL
+	RW- R-- RW-
 
     The STK RW- means that the stack is readable and writeable but not executable.
 
 Disable-wallet mode
 --------------------
-When the intention is to run only a P2P node without a wallet, Dash Core may be compiled in
+When the intention is to run only a P2P node without a wallet, Ogva Core may be compiled in
 disable-wallet mode with:
 
     ./configure --disable-wallet
@@ -301,8 +301,8 @@ Setup and Build Example: Arch Linux
 This example lists the steps necessary to setup and build a command line only, non-wallet distribution of the latest changes on Arch Linux:
 
     pacman -S git base-devel boost libevent python
-    git clone https://github.com/dashpay/dash.git
-    cd dash/
+    git clone https://github.com/ogvanetwork/ogva-core.git
+    cd ogva/
     ./autogen.sh
     ./configure --disable-wallet --without-gui --without-miniupnpc
     make check
@@ -311,5 +311,29 @@ Note:
 Enabling wallet support requires either compiling against a Berkeley DB newer than 4.8 (package `db`) using `--with-incompatible-bdb`,
 or building and depending on a local version of Berkeley DB 4.8. The readily available Arch Linux packages are currently built using
 `--with-incompatible-bdb` according to the [PKGBUILD](https://projects.archlinux.org/svntogit/community.git/tree/bitcoin/trunk/PKGBUILD).
-As mentioned above, when maintaining portability of the wallet between the standard Dash Core distributions and independently built
+As mentioned above, when maintaining portability of the wallet between the standard Ogva Core distributions and independently built
 node software is desired, Berkeley DB 4.8 must be used.
+
+
+ARM Cross-compilation
+-------------------
+These steps can be performed on, for example, an Ubuntu VM. The depends system
+will also work on other Linux distributions, however the commands for
+installing the toolchain will be different.
+
+Make sure you install the build requirements mentioned above.
+Then, install the toolchain and curl:
+
+    sudo apt-get install g++-arm-linux-gnueabihf curl
+
+To build executables for ARM:
+
+    cd depends
+    make HOST=arm-linux-gnueabihf NO_QT=1
+    cd ..
+    ./autogen.sh
+    CONFIG_SITE=$PWD/depends/arm-linux-gnueabihf/share/config.site ./configure --enable-reduce-exports LDFLAGS=-static-libstdc++
+    make
+
+
+For further documentation on the depends system see [README.md](../depends/README.md) in the depends directory.

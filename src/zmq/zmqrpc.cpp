@@ -13,9 +13,9 @@
 
 namespace {
 
-static RPCHelpMan getzmqnotifications()
+UniValue getzmqnotifications(const JSONRPCRequest& request)
 {
-    return RPCHelpMan{"getzmqnotifications",
+    RPCHelpMan{"getzmqnotifications",
         "\nReturns information about the active ZeroMQ notifications.\n",
         {},
         RPCResult{
@@ -33,8 +33,8 @@ static RPCHelpMan getzmqnotifications()
             HelpExampleCli("getzmqnotifications", "")
     + HelpExampleRpc("getzmqnotifications", "")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
+    }.Check(request);
+
     UniValue result(UniValue::VARR);
     if (g_zmq_notification_interface != nullptr) {
         for (const auto* n : g_zmq_notification_interface->GetActiveNotifiers()) {
@@ -47,8 +47,6 @@ static RPCHelpMan getzmqnotifications()
     }
 
     return result;
-},
-    };
 }
 
 const CRPCCommand commands[] =

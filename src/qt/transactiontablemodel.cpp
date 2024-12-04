@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2020 The Bitcoin Core developers
+// Copyright (c) 2011-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -431,8 +431,6 @@ QString TransactionTableModel::formatTxType(const TransactionRecord *wtx) const
         return tr("Payment to yourself");
     case TransactionRecord::Generated:
         return tr("Mined");
-    case TransactionRecord::PlatformTransfer:
-        return tr("Platform Transfer");
 
     case TransactionRecord::CoinJoinMixing:
         return tr("%1 Mixing").arg(QString::fromStdString(gCoinJoinName));
@@ -445,16 +443,16 @@ QString TransactionTableModel::formatTxType(const TransactionRecord *wtx) const
     case TransactionRecord::CoinJoinSend:
         return tr("%1 Send").arg(QString::fromStdString(gCoinJoinName));
 
-    case TransactionRecord::Other:
-        break; // use fail-over here
-    } // no default case, so the compiler can warn about missing cases
-    return QString();
+    default:
+        return QString();
+    }
 }
 
 QVariant TransactionTableModel::txAddressDecoration(const TransactionRecord *wtx) const
 {
     if (wtx->status.lockedByInstantSend) {
-        return GUIUtil::getIcon("transaction_locked", GUIUtil::ThemedColor::BLUE);
+        // return GUIUtil::getIcon("transaction_locked", GUIUtil::ThemedColor::BLUE);
+        return GUIUtil::getIcon("transaction_locked", GUIUtil::ThemedColor::PRIMARY);
     }
     return QVariant();
 }
@@ -476,20 +474,14 @@ QString TransactionTableModel::formatTxToAddress(const TransactionRecord *wtx, b
     case TransactionRecord::SendToAddress:
     case TransactionRecord::Generated:
     case TransactionRecord::CoinJoinSend:
-    case TransactionRecord::PlatformTransfer:
         return formatAddressLabel(wtx->strAddress, wtx->label, tooltip) + watchAddress;
     case TransactionRecord::SendToOther:
         return QString::fromStdString(wtx->strAddress) + watchAddress;
     case TransactionRecord::SendToSelf:
         return formatAddressLabel(wtx->strAddress, wtx->label, tooltip) + watchAddress;
-    case TransactionRecord::CoinJoinMixing:
-    case TransactionRecord::CoinJoinCollateralPayment:
-    case TransactionRecord::CoinJoinMakeCollaterals:
-    case TransactionRecord::CoinJoinCreateDenominations:
-    case TransactionRecord::Other:
-        break; // use fail-over here
-    } // no default case, so the compiler can warn about missing cases
-    return tr("(n/a)") + watchAddress;
+    default:
+        return tr("(n/a)") + watchAddress;
+    }
 }
 
 QVariant TransactionTableModel::addressColor(const TransactionRecord *wtx) const
@@ -500,7 +492,6 @@ QVariant TransactionTableModel::addressColor(const TransactionRecord *wtx) const
     case TransactionRecord::RecvWithAddress:
     case TransactionRecord::SendToAddress:
     case TransactionRecord::Generated:
-    case TransactionRecord::PlatformTransfer:
     case TransactionRecord::CoinJoinSend:
     case TransactionRecord::RecvWithCoinJoin:
         {
@@ -514,11 +505,9 @@ QVariant TransactionTableModel::addressColor(const TransactionRecord *wtx) const
     case TransactionRecord::CoinJoinMakeCollaterals:
     case TransactionRecord::CoinJoinCollateralPayment:
         return GUIUtil::getThemedQColor(GUIUtil::ThemedColor::BAREADDRESS);
-    case TransactionRecord::SendToOther:
-    case TransactionRecord::RecvFromOther:
-    case TransactionRecord::Other:
+    default:
         break;
-    } // no default case, so the compiler can warn about missing cases
+    }
     return GUIUtil::getThemedQColor(GUIUtil::ThemedColor::DEFAULT);
 }
 
@@ -542,7 +531,6 @@ QVariant TransactionTableModel::amountColor(const TransactionRecord *rec) const
     case TransactionRecord::RecvWithCoinJoin:
     case TransactionRecord::RecvWithAddress:
     case TransactionRecord::RecvFromOther:
-    case TransactionRecord::PlatformTransfer:
         return GUIUtil::getThemedQColor(GUIUtil::ThemedColor::GREEN);
     case TransactionRecord::CoinJoinSend:
     case TransactionRecord::SendToAddress:
@@ -620,29 +608,26 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
         return QVariant();
     TransactionRecord *rec = static_cast<TransactionRecord*>(index.internalPointer());
 
-    const auto column = static_cast<ColumnIndex>(index.column());
-    switch (role) {
+    switch(role)
+    {
     case RawDecorationRole:
-        switch (column) {
+        switch(index.column())
+        {
         case Status:
             return txStatusDecoration(rec);
         case Watchonly:
             return txWatchonlyDecoration(rec);
-        case Date: return {};
-        case Type: return {};
         case ToAddress:
             return txAddressDecoration(rec);
-        case Amount: return {};
-        } // no default case, so the compiler can warn about missing cases
-        assert(false);
+        }
+        break;
     case Qt::DecorationRole:
     {
         return qvariant_cast<QIcon>(index.data(RawDecorationRole));
     }
     case Qt::DisplayRole:
-        switch (column) {
-        case Status: return {};
-        case Watchonly: return {};
+        switch(index.column())
+        {
         case Date:
             return formatTxDate(rec);
         case Type:
@@ -651,11 +636,12 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
             return formatTxToAddress(rec, false);
         case Amount:
             return formatTxAmount(rec, true, BitcoinUnits::SeparatorStyle::ALWAYS);
-        } // no default case, so the compiler can warn about missing cases
-        assert(false);
+        }
+        break;
     case Qt::EditRole:
         // Edit role is used for sorting, so return the unformatted values
-        switch (column) {
+        switch(index.column())
+        {
         case Status:
             return QString::fromStdString(rec->status.sortKey);
         case Date:
@@ -668,8 +654,8 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
             return formatTxToAddress(rec, true);
         case Amount:
             return qint64(rec->credit + rec->debit);
-        } // no default case, so the compiler can warn about missing cases
-        assert(false);
+        }
+        break;
     case Qt::ToolTipRole:
         return formatTooltip(rec);
     case Qt::TextAlignmentRole:

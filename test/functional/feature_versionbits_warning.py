@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2016-2020 The Bitcoin Core developers
+# Copyright (c) 2016 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test version bits warning system.
@@ -12,7 +12,7 @@ import re
 
 from test_framework.blocktools import create_block, create_coinbase
 from test_framework.messages import msg_block
-from test_framework.p2p import P2PInterface
+from test_framework.p2p import p2p_lock, P2PInterface
 from test_framework.test_framework import BitcoinTestFramework
 
 VB_PERIOD = 144           # versionbits period length for regtest
@@ -85,12 +85,12 @@ class VersionBitsWarningTest(BitcoinTestFramework):
         # is cleared. This will move the versionbit state to ACTIVE.
         node.generatetoaddress(VB_PERIOD, node_deterministic_address)
 
-        # Stop-start the node. This is required because dashd will only warn once about unknown versions or unknown rules activating.
+        # Stop-start the node. This is required because ogvad will only warn once about unknown versions or unknown rules activating.
         self.restart_node(0)
 
         # Generating one block guarantees that we'll get out of IBD
         node.generatetoaddress(1, node_deterministic_address)
-        self.wait_until(lambda: not node.getblockchaininfo()['initialblockdownload'])
+        self.wait_until(lambda: not node.getblockchaininfo()['initialblockdownload'], timeout=10, lock=p2p_lock)
         # Generating one more block will be enough to generate an error.
         node.generatetoaddress(1, node_deterministic_address)
         # Check that get*info() shows the versionbits unknown rules warning

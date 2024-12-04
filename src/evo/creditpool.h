@@ -20,16 +20,14 @@
 #include <optional>
 #include <unordered_set>
 
-class BlockManager;
 class CBlockIndex;
 class BlockValidationState;
 class TxValidationState;
-namespace Consensus {
-struct Params;
-} // namespace Consensus
-namespace llmq {
-class CQuorumManager;
-} // namespace llmq
+
+namespace Consensus
+{
+    struct Params;
+}
 
 struct CCreditPool {
     CAmount locked{0};
@@ -84,7 +82,7 @@ public:
      * to change amount of credit pool
      * @return true if transaction can be included in this block
      */
-    bool ProcessLockUnlockTransaction(const BlockManager& blockman, const llmq::CQuorumManager& qman, const CTransaction& tx, TxValidationState& state);
+    bool ProcessLockUnlockTransaction(const CTransaction& tx, TxValidationState& state);
 
     /**
      * this function returns total amount of credits for the next block
@@ -106,7 +104,7 @@ class CCreditPoolManager
 {
 private:
     static constexpr size_t CreditPoolCacheSize = 1000;
-    Mutex cache_mutex;
+    RecursiveMutex cache_mutex;
     unordered_lru_cache<uint256, CCreditPool, StaticSaltedHasher> creditPoolCache GUARDED_BY(cache_mutex) {CreditPoolCacheSize};
 
     CEvoDB& evoDb;
@@ -136,8 +134,9 @@ private:
     CCreditPool ConstructCreditPool(const CBlockIndex* block_index, CCreditPool prev, const Consensus::Params& consensusParams);
 };
 
-std::optional<CCreditPoolDiff> GetCreditPoolDiffForBlock(CCreditPoolManager& cpoolman, const BlockManager& blockman, const llmq::CQuorumManager& qman,
-                                                         const CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams,
+std::optional<CCreditPoolDiff> GetCreditPoolDiffForBlock(const CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams,
                                                          const CAmount blockSubsidy, BlockValidationState& state);
+
+extern std::unique_ptr<CCreditPoolManager> creditPoolManager;
 
 #endif

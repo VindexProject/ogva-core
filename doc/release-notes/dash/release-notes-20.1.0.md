@@ -1,4 +1,4 @@
-# Dash Core version v20.1.0
+# Dash Core version v1.1.0
 
 This is a new minor version release, including various new features, improvements, and bug fixes.
 
@@ -117,7 +117,7 @@ you can configure it using a `.conf` file, or by passing the relevant options at
 This release introduces many updates from Bitcoin  v0.20-v25.0. Breaking changes are documented here; however, for
 additional detail on what’s included in Bitcoin, please refer to their release notes.
 
-# v20.1.0 Change log
+# v1.1.0 Change log
 
 See detailed [set of changes][set-of-changes].
 
@@ -188,4 +188,4 @@ These release are considered obsolete. Old release notes can be found here:
 - [v0.10.x](https://github.com/dashpay/dash/blob/master/doc/release-notes/dash/release-notes-0.10.0.md) released Sep/25/2014
 - [v0.9.x](https://github.com/dashpay/dash/blob/master/doc/release-notes/dash/release-notes-0.9.0.md) released Mar/13/2014
 
-[set-of-changes]: https://github.com/dashpay/dash/compare/v20.0.4...dashpay:v20.1.0
+[set-of-changes]: https://github.com/dashpay/dash/compare/v20.0.4...dashpay:v1.1.0

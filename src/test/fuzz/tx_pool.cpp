@@ -19,9 +19,8 @@ std::vector<COutPoint> g_outpoints_coinbase_init_mature;
 std::vector<COutPoint> g_outpoints_coinbase_init_immature;
 
 struct MockedTxPool : public CTxMemPool {
-    void RollingFeeUpdate() EXCLUSIVE_LOCKS_REQUIRED(!cs)
+    void RollingFeeUpdate()
     {
-        LOCK(cs);
         lastRollingFeeUpdate = GetTime();
         blockSinceLastRollingFeeBump = true;
     }

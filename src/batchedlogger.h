@@ -11,12 +11,10 @@ class CBatchedLogger
 {
 private:
     bool accept;
-    std::string m_logging_function;;
-    std::string m_source_file;
-    const int m_source_line;
+    std::string header;
     std::string msg;
 public:
-    CBatchedLogger(BCLog::LogFlags _category, const std::string& logging_function, const std::string& m_source_file, int m_source_line);
+    CBatchedLogger(BCLog::LogFlags _category, const std::string& _header);
     virtual ~CBatchedLogger();
 
     template<typename... Args>

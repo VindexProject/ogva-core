@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-2020 The Bitcoin Core developers
+# Copyright (c) 2014-2018 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the importmulti RPC.
@@ -270,7 +270,7 @@ class ImportMultiTest(BitcoinTestFramework):
                      isscript=True,
                      iswatchonly=True,
                      timestamp=timestamp)
-        p2shunspent = self.nodes[1].listunspent(0, 999999, [multisig.p2sh_addr])[0]
+        p2shunspent = self.nodes[1].listunspent(0, 996999, [multisig.p2sh_addr])[0]
         assert_equal(p2shunspent['spendable'], False)
         assert_equal(p2shunspent['solvable'], False)
 
@@ -291,7 +291,7 @@ class ImportMultiTest(BitcoinTestFramework):
         test_address(self.nodes[1],
                      multisig.p2sh_addr, timestamp=timestamp, iswatchonly=True, ismine=False, solvable=True)
 
-        p2shunspent = self.nodes[1].listunspent(0, 999999, [multisig.p2sh_addr])[0]
+        p2shunspent = self.nodes[1].listunspent(0, 996999, [multisig.p2sh_addr])[0]
         assert_equal(p2shunspent['spendable'], False)
         assert_equal(p2shunspent['solvable'], True)
 
@@ -317,7 +317,7 @@ class ImportMultiTest(BitcoinTestFramework):
                      iswatchonly=True,
                      solvable=True)
 
-        p2shunspent = self.nodes[1].listunspent(0, 999999, [multisig.p2sh_addr])[0]
+        p2shunspent = self.nodes[1].listunspent(0, 996999, [multisig.p2sh_addr])[0]
         assert_equal(p2shunspent['spendable'], False)
         assert_equal(p2shunspent['solvable'], True)
 

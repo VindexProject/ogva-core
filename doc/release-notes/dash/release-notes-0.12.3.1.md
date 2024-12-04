@@ -233,7 +233,7 @@ See detailed [change log](https://github.com/dashpay/dash/compare/v0.12.2.3...da
 ### InstantSend:
 - [`8c2d16f5f`](https://github.com/dashpay/dash/commit/8c2d16f5f) Limit IS quorums by updated MNs only (#2107)
 - [`ef85d5144`](https://github.com/dashpay/dash/commit/ef85d5144) Comment updates - InstantSend (#2062)
-- [`c0a109998`](https://github.com/dashpay/dash/commit/c0a109998) Fix instantsend in testnet and regtest (#2016)
+- [`c0a109968`](https://github.com/dashpay/dash/commit/c0a109968) Fix instantsend in testnet and regtest (#2016)
 - [`2f1661678`](https://github.com/dashpay/dash/commit/2f1661678) Locked txes should not expire until mined and have sufficient confirmations (#2011)
 - [`846f1d217`](https://github.com/dashpay/dash/commit/846f1d217) Avoid processing tx lock request twice in the wallet it was sent from (#2007)
 - [`c0c998da3`](https://github.com/dashpay/dash/commit/c0c998da3) Fix CInstantSend::GetTxLockRequest() (#2006)

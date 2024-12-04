@@ -1,0 +1,6 @@
+usr/local/bin/ogva-qt usr/bin
+share/pixmaps/ogva32.xpm usr/share/pixmaps
+share/pixmaps/ogva16.xpm usr/share/pixmaps
+share/pixmaps/ogva128.png usr/share/pixmaps
+debian/ogva-qt.desktop usr/share/applications
+debian/ogva-qt.protocol usr/share/kde4/services/

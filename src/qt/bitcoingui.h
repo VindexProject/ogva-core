@@ -336,7 +336,7 @@ public Q_SLOTS:
     void gotoSignMessageTab(QString addr = "");
     /** Show Sign/Verify Message dialog and switch to verify message tab */
     void gotoVerifyMessageTab(QString addr = "");
-    /** Load Partially Signed Dash Transaction from file or clipboard */
+    /** Load Partially Signed Ogva Transaction from file or clipboard */
     void gotoLoadPSBT(bool from_clipboard = false);
 
     /** Show open dialog */
@@ -359,7 +359,7 @@ public Q_SLOTS:
     void showPeers();
     void showRepair();
 
-    /** Open external (default) editor with dash.conf */
+    /** Open external (default) editor with ogva.conf */
     void showConfEditor();
     /** Show folder with wallet backups in default file browser */
     void showBackups();
@@ -387,6 +387,9 @@ public Q_SLOTS:
 
     /** Show progress dialog e.g. for verifychain */
     void showProgress(const QString &title, int nProgress);
+
+    /** When hideTrayIcon setting is changed in OptionsModel hide or show the icon accordingly. */
+    void setTrayIconVisible(bool);
 
     void showModalOverlay();
 

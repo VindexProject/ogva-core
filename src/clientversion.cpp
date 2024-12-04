@@ -1,4 +1,4 @@
-// Copyright (c) 2012-2020 The Bitcoin Core developers
+// Copyright (c) 2012-2014 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -9,10 +9,10 @@
 
 /**
  * Name of client reported in the 'version' message. Report the same name
- * for both dashd and dash-qt, to make it harder for attackers to
+ * for both ogvad and ogva-qt, to make it harder for attackers to
  * target servers or GUI users specifically.
  */
-const std::string CLIENT_NAME("Dash Core");
+const std::string CLIENT_NAME("Ogva Core");
 
 
 #ifdef HAVE_BUILD_INFO
@@ -24,7 +24,7 @@ const std::string CLIENT_NAME("Dash Core");
 #endif
 
 //! git will put "#define ARCHIVE_GIT_DESCRIPTION ..." on the next line inside archives. 
-#define ARCHIVE_GIT_DESCRIPTION "v21.1.1"
+#define ARCHIVE_GIT_DESCRIPTION ""
 
 #if CLIENT_VERSION_IS_RELEASE
     #define BUILD_DESC "v" PACKAGE_VERSION
@@ -44,6 +44,8 @@ const std::string CLIENT_NAME("Dash Core");
     #endif
 #endif
 
+const std::string CLIENT_BUILD(BUILD_DESC BUILD_SUFFIX);
+
 std::string FormatVersion(int nVersion)
 {
     return strprintf("%d.%d.%d", nVersion / 10000, (nVersion / 100) % 100, nVersion % 100);
@@ -51,7 +53,6 @@ std::string FormatVersion(int nVersion)
 
 std::string FormatFullVersion()
 {
-    static const std::string CLIENT_BUILD(BUILD_DESC BUILD_SUFFIX);
     return CLIENT_BUILD;
 }
 

@@ -16,14 +16,6 @@
 
 #include <tuple>
 
-struct CAddressUnspentKey;
-struct CAddressUnspentValue;
-struct CSpentIndexKey;
-struct CSpentIndexValue;
-
-using CAddressUnspentIndexEntry = std::pair<CAddressUnspentKey, CAddressUnspentValue>;
-using CSpentIndexEntry = std::pair<CSpentIndexKey, CSpentIndexValue>;
-
 struct CSpentIndexKey {
 public:
     uint256 m_tx_hash;

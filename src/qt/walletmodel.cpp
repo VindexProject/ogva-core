@@ -12,7 +12,6 @@
 #include <qt/addresstablemodel.h>
 #include <qt/clientmodel.h>
 #include <qt/guiconstants.h>
-#include <qt/guiutil.h>
 #include <qt/optionsmodel.h>
 #include <qt/paymentserver.h>
 #include <qt/recentrequeststablemodel.h>
@@ -69,10 +68,7 @@ WalletModel::~WalletModel()
 void WalletModel::startPollBalance()
 {
     // This timer will be fired repeatedly to update the balance
-    // Since the QTimer::timeout is a private signal, it cannot be used
-    // in the GUIUtil::ExceptionSafeConnect directly.
-    connect(timer, &QTimer::timeout, this, &WalletModel::timerTimeout);
-    GUIUtil::ExceptionSafeConnect(this, &WalletModel::timerTimeout, this, &WalletModel::pollBalanceChanged);
+    connect(timer, &QTimer::timeout, this, &WalletModel::pollBalanceChanged);
     timer->start(MODEL_UPDATE_DELAY);
 }
 
@@ -215,7 +211,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
     {
         if (rcp.fSubtractFeeFromAmount)
             fSubtractFeeFromAmount = true;
-        {   // User-entered dash address / amount:
+        {   // User-entered ogva address / amount:
             if(!validateAddress(rcp.address))
             {
                 return InvalidAddress;
@@ -285,7 +281,7 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &tran
         std::vector<std::pair<std::string, std::string>> vOrderForm;
         for (const SendCoinsRecipient &rcp : transaction.getRecipients())
         {
-            if (!rcp.message.isEmpty()) // Message from normal dash:URI (dash:XyZ...?message=example)
+            if (!rcp.message.isEmpty()) // Message from normal ogva:URI (ogva:XyZ...?message=example)
                 vOrderForm.emplace_back("Message", rcp.message.toStdString());
         }
 
@@ -569,6 +565,25 @@ void WalletModel::UnlockContext::CopyFrom(UnlockContext&& rhs)
     *this = rhs;
     rhs.was_locked = false;
     rhs.was_mixing = false;
+}
+
+void WalletModel::loadReceiveRequests(std::vector<std::string>& vReceiveRequests)
+{
+    vReceiveRequests = m_wallet->getDestValues("rr"); // receive request
+}
+
+bool WalletModel::saveReceiveRequest(const std::string &sAddress, const int64_t nId, const std::string &sRequest)
+{
+    CTxDestination dest = DecodeDestination(sAddress);
+
+    std::stringstream ss;
+    ss << nId;
+    std::string key = "rr" + ss.str(); // "rr" prefix = "receive request" in destdata
+
+    if (sRequest.empty())
+        return m_wallet->eraseDestData(dest, key);
+    else
+        return m_wallet->addDestData(dest, key, sRequest);
 }
 
 bool WalletModel::isWalletEnabled()
