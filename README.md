@@ -4,8 +4,11 @@ Ogva Core
 https://ogva.net
 
  Copyright (c) 2009-2010 Satoshi Nakamoto
+ 
  Copyright (c) 2009-2020 The Bitcoin Core developers
+ 
  Copyright (c) 2014-2024 The Dash Core developers
+ 
  Copyright (c) 20024 - 2025 Ogva Developers
 
 What is Ogva?
