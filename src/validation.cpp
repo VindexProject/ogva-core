@@ -1213,7 +1213,7 @@ CAmount GetBlockSubsidy(const CBlockIndex* const pindex, const Consensus::Params
 
 CAmount GetMasternodePayment(int nHeight, CAmount blockValue, bool fV20Active)
 {
-    CAmount ret = blockValue * 30 / 100; //30%
+    CAmount ret = blockValue * 25 / 100; //25%
     return ret;
 }
 

@@ -5,7 +5,6 @@
 // Copyright (c) 2024 The Ogva developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include <devfee_payment.h>
 #include <rpc/server.h>
 #include <util/system.h>
@@ -20,7 +19,7 @@ CAmount DevfeePayment::getDevfeePaymentAmount(int blockHeight, CAmount blockSubs
 	  for(int i = 0; i < rewardStructures.size(); i++) {
 		    DevfeeRewardStructure rewardStructure = rewardStructures[i];
 		    if(rewardStructure.blockHeight == INT_MAX || blockHeight <= rewardStructure.blockHeight) {
-			      return blockSubsidy / rewardStructure.rewardDivisor;
+			      return blockSubsidy * rewardStructure.rewardDivisor / 100;
 		    }
 	  }
 	  return 0;

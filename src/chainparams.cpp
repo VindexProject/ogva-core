@@ -2,7 +2,6 @@
 // Copyright (c) 2009-2020 The Bitcoin Core developers
 // Copyright (c) 2014-2024 The Dash Core developers
 // Copyright (c) 2022-2024 The Ogva Core developers
-// Copyright (c) 2024 The Ogva Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -291,10 +290,10 @@ public:
         std::vector<DevfeeRewardStructure> rewardStructures = {  {INT_MAX, 10}  }; // 10% dev fee
         consensus.nDevfeePayment = DevfeePayment(rewardStructures, 1, "ATX9DV7xD2T25rsW1bAsRdNoqxMKjDEVhw");
 
-        std::vector<DevfeeRewardStructure> rewardStructuresDev = {  {INT_MAX, 20}  }; // 10% Development fee
+        std::vector<DevfeeRewardStructure> rewardStructuresDev = {  {INT_MAX, 10}  }; // 10% Development fee
         consensus.nDevelopmentPayment = DevfeePayment(rewardStructuresDev, 1, "APfuNijxamnChG8bBuQFGdmMwLTBZgdtpp");  
 
-        std::vector<DevfeeRewardStructure> rewardStructuresCommunity = {  {INT_MAX, 10}  }; // 10% Community
+        std::vector<DevfeeRewardStructure> rewardStructuresCommunity = {  {INT_MAX, 30}  }; // 10% Community
         consensus.nCommunityPayment = DevfeePayment(rewardStructuresCommunity, 1, "ASKoPvskUViDt1fkuL2n57iinQVfFAMbK8");       
 
 
