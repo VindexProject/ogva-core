@@ -19,12 +19,12 @@ Ogva Network is a pioneering blockchain-based currency dedicated to fostering co
 Recognizing the necessity for speed in modern transactions, Ogva Network features an exceptionally fast transaction capability, enabling instant transactions to meet the demands of today’s fast-paced economy.
 
 For more information, as well as an immediately useable, binary version of
-the Smartcash Core software, see https://ogva.net/
+the Ogva Core software, see https://ogva.net/
 
 License
 -------
 
-Smartcash Core is released under the terms of the MIT license. See [COPYING](COPYING) for more
+Ogva Core is released under the terms of the MIT license. See [COPYING](COPYING) for more
 information or see https://opensource.org/licenses/MIT.
 
 Development Process
